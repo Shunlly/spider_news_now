@@ -27,6 +27,11 @@ class ScraperService:
     - ScraperRun tracking and statistics
     """
 
+    # Special case mappings for source_key to class name
+    CLASS_NAME_MAPPINGS = {
+        "qq": "QQScraper",
+    }
+
     @staticmethod
     async def load_scraper(source_key: str, scraper_module: str):
         """
@@ -46,8 +51,10 @@ class ScraperService:
             # Import module
             module = importlib.import_module(scraper_module)
 
-            # Get scraper class (assumes CamelCase naming: sina -> SinaScraper)
-            class_name = f"{source_key.capitalize()}Scraper"
+            # Get scraper class name (check special mappings first, then use default CamelCase)
+            class_name = ScraperService.CLASS_NAME_MAPPINGS.get(
+                source_key, f"{source_key.capitalize()}Scraper"
+            )
             scraper_class = getattr(module, class_name)
 
             # Instantiate scraper

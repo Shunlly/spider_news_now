@@ -72,24 +72,8 @@ async def get_articles(
     )
 
 
-@router.get("/articles/{article_id}", response_model=NewsArticleDetailResponse)
-async def get_article(
-    article_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Retrieve a single news article by ID.
-
-    Returns detailed article information including URL hash and timestamps.
-    """
-    article = await NewsService.get_article_by_id(db, article_id)
-
-    if not article:
-        raise HTTPException(status_code=404, detail=f"Article with id {article_id} not found")
-
-    return NewsArticleDetailResponse.model_validate(article)
-
-
+# NOTE: /articles/grouped MUST be defined before /articles/{article_id}
+# to avoid route matching conflict (FastAPI matches routes in order)
 @router.get("/articles/grouped", response_model=NewsArticleGroupedResponse)
 async def get_articles_grouped(
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -139,6 +123,24 @@ async def get_articles_grouped(
         total_sources=len(source_groups),
         filters_applied=filters_applied,
     )
+
+
+@router.get("/articles/{article_id}", response_model=NewsArticleDetailResponse)
+async def get_article(
+    article_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retrieve a single news article by ID.
+
+    Returns detailed article information including URL hash and timestamps.
+    """
+    article = await NewsService.get_article_by_id(db, article_id)
+
+    if not article:
+        raise HTTPException(status_code=404, detail=f"Article with id {article_id} not found")
+
+    return NewsArticleDetailResponse.model_validate(article)
 
 
 @router.get("/sources", response_model=NewsSourceListResponse)

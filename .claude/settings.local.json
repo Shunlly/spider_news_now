@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose build:*)",
+      "Bash(pip install:*)",
+      "Bash(mysql:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(curl:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(taskkill:*)",
+      "Bash(findstr:*)",
+      "Bash(docker info:*)",
+      "Bash(docker pull:*)",
+      "Bash(cat:*)",
+      "Bash(docker logs:*)"
+    ]
+  }
+}

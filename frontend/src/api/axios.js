@@ -1,4 +1,6 @@
-"""Axios instance configuration."""
+/**
+ * Axios instance configuration.
+ */
 
 import axios from 'axios'
 

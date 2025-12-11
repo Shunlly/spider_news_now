@@ -1,23 +1,17 @@
-FROM python:3.13-slim
+FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install MySQL client library
 RUN apt-get update && apt-get install -y \
-    gcc \
     default-libmysqlclient-dev \
     pkg-config \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN playwright install chromium
-RUN playwright install-deps chromium
 
 # Copy application code
 COPY . .

@@ -2,7 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -15,6 +15,10 @@ from app.schemas.scraper import (
     ScraperStatusListResponse,
     ScraperRunResponse,
     ScraperRunListResponse,
+    NewsSourceCreate,
+    NewsSourceResponse,
+    ScraperConfigUpdate,
+    ScraperEnableResponse,
 )
 from app.tasks.scraper_tasks import trigger_scraper_now
 
@@ -186,6 +190,227 @@ async def get_scrapers_status(
         total_scrapers=len(statuses),
         active_runs=active_runs
     )
+
+
+@router.post("", response_model=NewsSourceResponse, status_code=201)
+async def create_scraper(
+    source_data: NewsSourceCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Register a new news source/scraper.
+
+    This endpoint allows adding new scrapers to the system without
+    modifying core code.
+
+    Args:
+        source_data: New source configuration including scraper module path
+
+    Returns:
+        201 Created with the new source details
+
+    Raises:
+        409: Source with same key already exists
+        400: Invalid scraper module path
+    """
+    # Check if source already exists
+    stmt = select(NewsSource).where(NewsSource.source_key == source_data.source_key)
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Source '{source_data.source_key}' already exists"
+        )
+
+    # Validate scraper module can be loaded
+    try:
+        import importlib
+        module = importlib.import_module(source_data.scraper_module)
+        class_name = f"{source_data.source_key.capitalize()}Scraper"
+        if not hasattr(module, class_name):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Scraper class '{class_name}' not found in module '{source_data.scraper_module}'"
+            )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot import scraper module '{source_data.scraper_module}': {str(e)}"
+        )
+
+    # Create new source
+    new_source = NewsSource(
+        source_key=source_data.source_key,
+        display_name=source_data.display_name,
+        enabled=source_data.enabled,
+        scraper_module=source_data.scraper_module,
+        schedule_interval=source_data.schedule_interval,
+        status="idle",
+        failure_count=0,
+    )
+    db.add(new_source)
+    await db.commit()
+    await db.refresh(new_source)
+
+    logger.info(f"Created new source", extra={"source_key": source_data.source_key})
+
+    return NewsSourceResponse.model_validate(new_source)
+
+
+@router.put("/{source_key}/enable", response_model=ScraperEnableResponse)
+async def enable_scraper(
+    source_key: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Enable a scraper to run on schedule.
+
+    Args:
+        source_key: Source identifier
+
+    Returns:
+        Confirmation with next scheduled run time
+
+    Raises:
+        404: Source not found
+    """
+    stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    result = await db.execute(stmt)
+    source = result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail=f"Source '{source_key}' not found")
+
+    if source.enabled:
+        from datetime import timedelta
+        next_run = None
+        if source.last_run_at:
+            next_run = source.last_run_at + timedelta(seconds=source.schedule_interval)
+        return ScraperEnableResponse(
+            message=f"Scraper '{source_key}' is already enabled",
+            source_key=source_key,
+            enabled=True,
+            next_run_at=next_run,
+        )
+
+    # Enable the source
+    from datetime import datetime, timedelta
+    await db.execute(
+        update(NewsSource)
+        .where(NewsSource.source_key == source_key)
+        .values(enabled=True, status="idle")
+    )
+    await db.commit()
+
+    # Calculate next run time
+    next_run = datetime.now() + timedelta(seconds=source.schedule_interval)
+
+    logger.info(f"Enabled scraper", extra={"source_key": source_key})
+
+    return ScraperEnableResponse(
+        message=f"Scraper '{source_key}' enabled successfully",
+        source_key=source_key,
+        enabled=True,
+        next_run_at=next_run,
+    )
+
+
+@router.put("/{source_key}/disable", response_model=ScraperEnableResponse)
+async def disable_scraper(
+    source_key: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Disable a scraper from running on schedule.
+
+    Args:
+        source_key: Source identifier
+
+    Returns:
+        Confirmation of disabled status
+
+    Raises:
+        404: Source not found
+    """
+    stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    result = await db.execute(stmt)
+    source = result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail=f"Source '{source_key}' not found")
+
+    if not source.enabled:
+        return ScraperEnableResponse(
+            message=f"Scraper '{source_key}' is already disabled",
+            source_key=source_key,
+            enabled=False,
+            next_run_at=None,
+        )
+
+    # Disable the source
+    await db.execute(
+        update(NewsSource)
+        .where(NewsSource.source_key == source_key)
+        .values(enabled=False, status="disabled")
+    )
+    await db.commit()
+
+    logger.info(f"Disabled scraper", extra={"source_key": source_key})
+
+    return ScraperEnableResponse(
+        message=f"Scraper '{source_key}' disabled successfully",
+        source_key=source_key,
+        enabled=False,
+        next_run_at=None,
+    )
+
+
+@router.put("/{source_key}/config", response_model=NewsSourceResponse)
+async def update_scraper_config(
+    source_key: str,
+    config: ScraperConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update scraper configuration.
+
+    Currently supports updating:
+    - schedule_interval: How often the scraper runs (in seconds)
+
+    Args:
+        source_key: Source identifier
+        config: New configuration values
+
+    Returns:
+        Updated source details
+
+    Raises:
+        404: Source not found
+    """
+    stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    result = await db.execute(stmt)
+    source = result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail=f"Source '{source_key}' not found")
+
+    # Update configuration
+    await db.execute(
+        update(NewsSource)
+        .where(NewsSource.source_key == source_key)
+        .values(schedule_interval=config.schedule_interval)
+    )
+    await db.commit()
+    await db.refresh(source)
+
+    logger.info(
+        f"Updated scraper config",
+        extra={"source_key": source_key, "schedule_interval": config.schedule_interval}
+    )
+
+    return NewsSourceResponse.model_validate(source)
 
 
 @router.get("/{source_key}/runs", response_model=ScraperRunListResponse)

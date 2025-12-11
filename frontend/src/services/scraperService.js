@@ -32,6 +32,34 @@ export const scraperService = {
    */
   async triggerScraper(sourceKey) {
     return await axios.post(API_ENDPOINTS.SCRAPER_TRIGGER(sourceKey))
+  },
+
+  /**
+   * Enable a scraper
+   */
+  async enableScraper(sourceKey) {
+    return await axios.put(API_ENDPOINTS.SCRAPER_ENABLE(sourceKey))
+  },
+
+  /**
+   * Disable a scraper
+   */
+  async disableScraper(sourceKey) {
+    return await axios.put(API_ENDPOINTS.SCRAPER_DISABLE(sourceKey))
+  },
+
+  /**
+   * Update scraper configuration
+   */
+  async updateScraperConfig(sourceKey, config) {
+    return await axios.put(`/scrapers/${sourceKey}/config`, config)
+  },
+
+  /**
+   * Create a new scraper
+   */
+  async createScraper(data) {
+    return await axios.post('/scrapers', data)
   }
 }
 

@@ -17,7 +17,8 @@
       "Bash(docker info:*)",
       "Bash(docker pull:*)",
       "Bash(cat:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

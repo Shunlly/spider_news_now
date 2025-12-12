@@ -10,6 +10,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-news_scraper}
       MYSQL_USER: ${MYSQL_USER:-news_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-news_password}
+      TZ: Asia/Shanghai
     ports:
       - "3306:3306"
     volumes:
@@ -37,6 +38,7 @@ services:
       API_V1_PREFIX: /api/v1
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://frontend
+      TZ: Asia/Shanghai
     ports:
       - "8000:8000"
     volumes:
@@ -57,6 +59,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      TZ: Asia/Shanghai
     ports:
       - "80:80"
     networks:

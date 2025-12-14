@@ -27,6 +27,7 @@ class NewsService:
         category: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
         sort_by: str = "published_at",
@@ -41,6 +42,7 @@ class NewsService:
             category: Filter by category
             start_date: Filter articles published after this date
             end_date: Filter articles published before this date
+            search: Search query for title
             page: Page number (1-indexed)
             page_size: Items per page (max 1000)
             sort_by: Sort field (published_at, scraped_at, title)
@@ -61,6 +63,8 @@ class NewsService:
             stmt = stmt.where(NewsArticle.published_at >= start_date)
         if end_date:
             stmt = stmt.where(NewsArticle.published_at <= end_date)
+        if search:
+            stmt = stmt.where(NewsArticle.title.ilike(f"%{search}%"))
 
         # Count total
         count_stmt = select(func.count()).select_from(stmt.subquery())

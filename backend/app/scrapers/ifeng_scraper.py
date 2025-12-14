@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from playwright.async_api import async_playwright
 
@@ -12,10 +12,63 @@ from app.scrapers.base import BaseScraper
 class IfengScraper(BaseScraper):
     """Scraper for Ifeng News (凤凰网) - Finance and Military channels."""
 
+    # 凤凰网正文选择器
+    CONTENT_SELECTORS = [
+        "#main_content",
+        ".main_content",
+        ".article-content",
+        ".article-body",
+    ]
+
+    # Data keys in allData that contain news articles
+    NEWS_DATA_KEYS = [
+        "newsData",
+        "hotspotsData",
+        "globalData",
+        "stormData",
+        "newsflashData",
+        "researchData",
+        "investData",
+        "bankEyeData",
+        "featuredData",
+    ]
+
     def __init__(self):
         super().__init__(source_key="ifeng", display_name="凤凰网")
         self.finance_url = "https://finance.ifeng.com/"
         self.military_url = "https://mil.ifeng.com/"
+
+    async def fetch_content(self, url: str) -> Optional[str]:
+        """Fetch article content from Ifeng News."""
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                await page.goto(url, wait_until='domcontentloaded', timeout=self.CONTENT_FETCH_TIMEOUT)
+                await asyncio.sleep(2)
+
+                content = None
+                for selector in self.CONTENT_SELECTORS:
+                    try:
+                        element = page.locator(selector).first
+                        if await element.count() > 0:
+                            content = await element.inner_text()
+                            if content and len(content.strip()) > 30:
+                                break
+                    except Exception:
+                        continue
+
+                await browser.close()
+
+                if content:
+                    content = self._clean_content(content)
+                    return content if len(content) > 30 else None
+                return None
+
+        except Exception as e:
+            self.logger.warning(f"Ifeng content fetch failed for {url}: {str(e)}")
+            return None
 
     async def scrape(self) -> List[Dict[str, Any]]:
         """Scrape finance and military channels."""
@@ -35,8 +88,9 @@ class IfengScraper(BaseScraper):
         return all_articles
 
     async def _scrape_channel(self, url: str, category: str) -> List[Dict[str, Any]]:
-        """Scrape a specific channel."""
+        """Scrape a specific channel using JavaScript data extraction."""
         news_data = []
+        seen_urls = set()
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -44,30 +98,48 @@ class IfengScraper(BaseScraper):
                 page.set_default_timeout(120000)
 
                 await page.goto(url, wait_until="domcontentloaded", timeout=120000)
-                await asyncio.sleep(3)
+                await asyncio.sleep(5)
 
-                # Extract articles (simplified - adapt to actual site structure)
-                items = await page.locator("div.box_list ul li").all()
+                # Extract allData from JavaScript
+                all_data = await page.evaluate("() => window.allData")
 
-                for item in items:
-                    try:
-                        a = await item.query_selector("a")
-                        if not a:
-                            continue
+                if all_data:
+                    # Extract articles from various data arrays
+                    for key in self.NEWS_DATA_KEYS:
+                        if key in all_data and isinstance(all_data[key], list):
+                            for item in all_data[key]:
+                                try:
+                                    if not isinstance(item, dict):
+                                        continue
 
-                        href = await a.get_attribute("href")
-                        text = await a.inner_text()
+                                    article_url = item.get("url", "")
+                                    title = item.get("title", "")
 
-                        if href and text:
-                            news_data.append({
-                                "url": href,
-                                "title": text.strip(),
-                                "category": category,
-                                "published_at": datetime.now(),
-                            })
-                    except Exception as e:
-                        self.logger.warning(f"Failed to extract article: {str(e)}")
-                        continue
+                                    if not article_url or not title:
+                                        continue
+
+                                    if article_url in seen_urls:
+                                        continue
+                                    seen_urls.add(article_url)
+
+                                    # Parse news time if available
+                                    news_time = item.get("newsTime", "")
+                                    published_at = datetime.now()
+                                    if news_time:
+                                        try:
+                                            published_at = datetime.strptime(news_time, "%Y-%m-%d %H:%M:%S")
+                                        except ValueError:
+                                            pass
+
+                                    news_data.append({
+                                        "url": article_url,
+                                        "title": title.strip(),
+                                        "category": category,
+                                        "published_at": published_at,
+                                    })
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to extract article from {key}: {str(e)}")
+                                    continue
 
                 await browser.close()
 

@@ -121,3 +121,53 @@ def sample_scraper_run():
         "articles_new": 0,
         "articles_duplicate": 0,
     }
+
+
+@pytest.fixture
+def sample_credential():
+    """Factory for creating sample credential data."""
+    return {
+        "name": "Test Credential",
+        "platform": "twitter",
+        "credentials": {"bearer_token": "test_token_12345"},
+        "is_default": False,
+    }
+
+
+@pytest.fixture
+def sample_proxy():
+    """Factory for creating sample proxy data."""
+    return {
+        "name": "Test Proxy",
+        "protocol": "http",
+        "host": "proxy.example.com",
+        "port": 8080,
+        "username": "user",
+        "password": "pass",
+        "weight": 1,
+        "priority": 0,
+    }
+
+
+@pytest.fixture
+def sample_social_session():
+    """Factory for creating sample social session data."""
+    return {
+        "platform": "twitter",
+        "target_type": "user",
+        "target_id": "123456789",
+        "target_name": "Test User",
+        "target_username": "testuser",
+        "description": "Test session",
+        "fetch_interval": 3600,
+    }
+
+
+@pytest.fixture
+def sample_export_request():
+    """Factory for creating sample export request data."""
+    return {
+        "data_source": "news",
+        "export_format": "csv",
+        "filters": {"source_key": "test_source"},
+    }

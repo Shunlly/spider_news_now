@@ -12,51 +12,46 @@
 ## Technical Context
 
 <!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
+  Per Constitution v2.0.0: Tech stack is mandated. Only fill in feature-specific details.
+  Reference: .specify/memory/constitution.md Section I. Tech Stack Mandate
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Backend**: Python 3.10+ (FastAPI), Pydantic v2, SQLAlchemy (Async)
+**Frontend**: React (TypeScript) + Vite + Tailwind CSS + Arco Design
+**Database**: MySQL 8.0+ (utf8mb4_unicode_ci)
+**Search**: Elasticsearch / Meilisearch
+**Object Storage**: MinIO / S3-compatible
+**Testing**: pytest + pytest-asyncio (backend), Vitest + RTL (frontend)
+**Project Type**: web (backend + frontend separation)
+**Performance Goals**: API < 2s (1000 results), Scraper < 60s per run
+**Constraints**: [feature-specific constraints or N/A]
+**Scale/Scope**: [feature-specific scale or N/A]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Reference: `.specify/memory/constitution.md` for complete quality gates.
+Reference: `.specify/memory/constitution.md` v2.0.0 for complete requirements.
 
-### Pre-Implementation Gates (verify now)
+### Architecture Compliance (verify now)
 
-- [ ] Feature specification approved and unambiguous (no [NEEDS CLARIFICATION])
-- [ ] Implementation plan includes constitution compliance checks
-- [ ] Test strategy defined (unit + integration test plan written)
-- [ ] Performance targets identified and measurable
+- [ ] Storage operations use StorageProvider adapter pattern (Section II.A)
+- [ ] Data models follow heterogeneous modeling rules (News vs Social) (Section II.B)
+- [ ] Deduplication mechanism planned (URL Hash / SimHash) (Section II.C)
 
-### Implementation Gates (verify during development)
+### UI/UX Compliance (verify for frontend features)
 
-- [ ] All tests written and passing (Red-Green-Refactor cycle followed)
-- [ ] Code coverage meets minimum 80% threshold (100% for critical paths)
-- [ ] Linting and formatting checks pass with zero warnings
-- [ ] Type checking passes (mypy or equivalent) with no type errors
-- [ ] All public APIs/functions have complete docstrings
-- [ ] Code review completed with constitutional compliance verified
+- [ ] UI follows Glassmorphism theme (Section III.A)
+- [ ] Layout uses Bento Grid pattern (Section III.B)
+- [ ] Color scheme uses gradient backgrounds (Section III.C)
 
-### Deployment Gates (verify before production)
+### Coding Standards (verify during development)
 
-- [ ] Integration tests pass in staging environment
-- [ ] Performance benchmarks meet SLA targets
-- [ ] Error handling tested (network failures, timeouts, invalid data)
-- [ ] Logging verified (structured logs with appropriate levels)
-- [ ] Rollback plan documented
-- [ ] Monitoring alerts configured for new functionality
+- [ ] Type Hints for all Python functions, TypeScript interfaces for frontend
+- [ ] Core logic includes Chinese comments (especially scraper parsing, dedup)
+- [ ] Error handling with retry mechanism for external APIs
+- [ ] No placeholder code (pass, TODO) - complete implementations only
+- [ ] Structured logging with context (scraper_id, article_count, execution_time)
 
 ## Project Structure
 
@@ -73,54 +68,41 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
+
 <!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
+  Per Constitution v2.0.0 Development Standards: Web application structure is mandated.
+  Only adjust paths if feature requires additional directories.
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-# Structure per constitution: .specify/memory/constitution.md Development Standards
-src/
-├── scrapers/    # Individual scraper implementations (inherit from base class)
-├── models/      # Data models (NewsArticle, ScraperRun, etc.)
-├── services/    # Business logic (duplicate detection, scheduling, data access)
-├── api/         # API endpoints (query, filter, status)
-├── web/         # Web interface (grouped display, UI components)
-└── lib/         # Shared utilities (logging, config, helpers)
-
-tests/
-├── contract/    # Scraper output schema validation tests
-├── integration/ # Integration tests for external dependencies
-└── unit/        # Fast, isolated unit tests mirroring source structure
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+# Web Application Structure (per Constitution v2.0.0)
 backend/
 ├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
+│   ├── scrapers/       # 爬虫实现（继承基类）
+│   ├── models/         # 数据模型 (SQLAlchemy ORM)
+│   ├── schemas/        # Pydantic 模型（请求/响应）
+│   ├── services/       # 业务逻辑（去重、调度、数据访问）
+│   ├── api/            # FastAPI 路由
+│   ├── storage/        # StorageProvider 适配器实现
+│   └── lib/            # 共享工具（日志、配置）
 └── tests/
+    ├── unit/           # 单元测试
+    ├── integration/    # 集成测试
+    └── contract/       # 契约测试
 
 frontend/
 ├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+│   ├── components/     # React 组件
+│   │   └── ui/         # 基于 Arco Design 的封装组件
+│   ├── pages/          # 页面组件
+│   ├── hooks/          # 自定义 Hooks
+│   ├── services/       # API 调用服务
+│   ├── stores/         # 状态管理
+│   └── types/          # TypeScript 类型定义
+└── tests/              # 前端测试
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application with backend/frontend separation per Constitution v2.0.0
 
 ## Complexity Tracking
 

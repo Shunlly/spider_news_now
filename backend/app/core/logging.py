@@ -8,30 +8,33 @@ from app.core.config import settings
 
 
 class StructuredFormatter(logging.Formatter):
-    """Custom formatter that outputs structured log messages."""
+    """Custom formatter that outputs structured log messages with clear timestamps."""
+
+    def __init__(self):
+        super().__init__(
+            fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record with structured data."""
-        log_data: Dict[str, Any] = {
-            "timestamp": self.formatTime(record, self.datefmt),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-
-        # Add extra fields if present
+        """Format log record with timestamp and structured data."""
+        # Build extra info string
+        extras = []
         if hasattr(record, "source_key"):
-            log_data["source_key"] = record.source_key
+            extras.append(f"source={record.source_key}")
         if hasattr(record, "article_count"):
-            log_data["article_count"] = record.article_count
+            extras.append(f"count={record.article_count}")
         if hasattr(record, "duration"):
-            log_data["duration"] = record.duration
+            extras.append(f"duration={record.duration}s")
 
-        # Add exception info if present
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
+        # Format the base message
+        base_msg = super().format(record)
 
-        return str(log_data)
+        # Append extras if any
+        if extras:
+            base_msg += f" [{', '.join(extras)}]"
+
+        return base_msg
 
 
 def setup_logging() -> None:
@@ -42,13 +45,14 @@ def setup_logging() -> None:
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
-    console_handler.setFormatter(
-        StructuredFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
+    console_handler.setFormatter(StructuredFormatter())
 
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
+
+    # Remove existing handlers to avoid duplicates
+    root_logger.handlers.clear()
     root_logger.addHandler(console_handler)
 
     # Configure SQLAlchemy logger

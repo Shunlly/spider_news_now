@@ -23,6 +23,67 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis - 用于 Bloom Filter 去重和缓存
+  redis:
+    image: redis:7.2-alpine
+    container_name: news_scraper_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - news_scraper_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # Meilisearch - 全文检索引擎
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: news_scraper_meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey123}
+      MEILI_ENV: ${MEILI_ENV:-development}
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - news_scraper_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - S3 兼容的对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: news_scraper_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"   # API 端口
+      - "9001:9001"   # Console 端口
+    volumes:
+      - minio_data:/data
+    networks:
+      - news_scraper_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: server /data --console-address ":9001"
+
   backend:
     build:
       context: ./backend
@@ -32,12 +93,32 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
+      # 数据库配置
       DATABASE_URL: mysql+aiomysql://${MYSQL_USER:-news_user}:${MYSQL_PASSWORD:-news_password}@mysql:3306/${MYSQL_DATABASE:-news_scraper}
       SCHEDULER_JOBSTORE_URL: mysql+pymysql://${MYSQL_USER:-news_user}:${MYSQL_PASSWORD:-news_password}@mysql:3306/${MYSQL_DATABASE:-news_scraper}
+      # Redis 配置
+      REDIS_URL: redis://redis:6379/0
+      # Meilisearch 配置
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:-masterKey123}
+      # MinIO 配置
+      STORAGE_BACKEND: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-news-scraper}
+      MINIO_SECURE: "false"
+      # API 配置
       API_V1_PREFIX: /api/v1
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://frontend
+      ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:5173,http://frontend
       TZ: Asia/Shanghai
     ports:
       - "8000:8000"
@@ -53,7 +134,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend-react
       dockerfile: Dockerfile
     container_name: news_scraper_frontend
     restart: unless-stopped
@@ -65,9 +146,20 @@ services:
       - "80:80"
     networks:
       - news_scraper_network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  meilisearch_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:

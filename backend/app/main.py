@@ -30,18 +30,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     scheduler = await get_scheduler()
 
-    async with scheduler:
-        await scheduler.start_in_background()
-        logger.info("APScheduler started")
+    try:
+        async with scheduler:
+            await scheduler.start_in_background()
+            logger.info("APScheduler started")
 
-        # Register scraper jobs
-        await register_scraper_jobs()
-        logger.info("Scraper scheduler initialized")
+            # Register scraper jobs
+            await register_scraper_jobs()
+            logger.info("Scraper scheduler initialized")
 
-        yield
+            yield
 
-        # Shutdown happens automatically when exiting context manager
-        logger.info("Shutting down News Scraper API")
+            # Shutdown happens automatically when exiting context manager
+            logger.info("Shutting down News Scraper API")
+    except* Exception as eg:
+        # Handle ExceptionGroup from APScheduler shutdown gracefully
+        for exc in eg.exceptions:
+            logger.warning(f"Scheduler shutdown exception: {exc}")
+        logger.info("Scheduler shutdown completed with warnings")
 
 
 # Create FastAPI application

@@ -12,6 +12,7 @@ from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource
 from app.models.scraper_run import ScraperRun
 from app.services.duplicate_service import DuplicateService
+from app.services.search_service import get_search_service
 
 logger = get_logger(__name__)
 
@@ -136,11 +137,64 @@ class ScraperService:
                 db, articles
             )
 
+            # Step 4.5: Update existing articles with content if they don't have it
+            content_updated = 0
+            for article in duplicate_articles:
+                if article.get("content_text") and article.get("url_hash"):
+                    # Check if existing article needs content update
+                    existing = await db.execute(
+                        select(NewsArticle).where(
+                            NewsArticle.url_hash == article["url_hash"],
+                            NewsArticle.content_text.is_(None)
+                        )
+                    )
+                    existing_article = existing.scalar_one_or_none()
+                    if existing_article:
+                        await db.execute(
+                            update(NewsArticle)
+                            .where(NewsArticle.id == existing_article.id)
+                            .values(
+                                content_text=article["content_text"],
+                                content_hash=article.get("content_hash")
+                            )
+                        )
+                        content_updated += 1
+
+            if content_updated > 0:
+                await db.commit()
+                logger.info(f"Updated {content_updated} existing articles with content")
+
             # Step 5: Insert new articles
             if new_articles:
                 article_models = [NewsArticle(**article) for article in new_articles]
                 db.add_all(article_models)
                 await db.commit()
+
+                # Step 5.5: Index new articles to Meilisearch
+                try:
+                    search_service = get_search_service()
+                    # Refresh to get IDs
+                    for model in article_models:
+                        await db.refresh(model)
+
+                    index_docs = []
+                    for model in article_models:
+                        index_docs.append({
+                            "id": model.id,
+                            "title": model.title,
+                            "url": model.url,
+                            "source_key": model.source_key,
+                            "category": model.category,
+                            "content": model.content_text,
+                            "published_at": model.published_at,
+                            "created_at": model.created_at,
+                        })
+
+                    if index_docs:
+                        await search_service.index_documents(index_docs)
+                        logger.info(f"Indexed {len(index_docs)} articles to Meilisearch")
+                except Exception as e:
+                    logger.warning(f"Failed to index articles to Meilisearch: {e}")
 
             # Step 6: Update ScraperRun with statistics
             end_time = datetime.now()

@@ -3,7 +3,7 @@
 import asyncio
 import time
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from playwright.async_api import async_playwright, Page
 
@@ -20,11 +20,62 @@ class SinaScraper(BaseScraper):
     - World News (world): https://news.sina.com.cn/world/
     """
 
+    # 新浪新闻正文选择器
+    CONTENT_SELECTORS = [
+        "#article",          # 文章正文主容器
+        "#artibody",         # 旧版文章容器
+        ".article",
+        ".article-content",
+    ]
+
     def __init__(self):
         super().__init__(source_key="sina", display_name="新浪新闻")
         self.ent_url = "https://ent.sina.com.cn/"
         self.china_url = "https://news.sina.com.cn/china/"
         self.world_url = "https://news.sina.com.cn/world/"
+
+    async def fetch_content(self, url: str) -> Optional[str]:
+        """
+        Fetch article content from Sina News.
+
+        Args:
+            url: Article URL
+
+        Returns:
+            Article content text
+        """
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                await page.goto(url, wait_until='domcontentloaded', timeout=self.CONTENT_FETCH_TIMEOUT)
+                await asyncio.sleep(2)
+
+                content = None
+
+                # Try Sina-specific selectors
+                for selector in self.CONTENT_SELECTORS:
+                    try:
+                        element = page.locator(selector).first
+                        if await element.count() > 0:
+                            content = await element.inner_text()
+                            if content and len(content.strip()) > 30:
+                                break
+                    except Exception:
+                        continue
+
+                await browser.close()
+
+                if content:
+                    content = self._clean_content(content)
+                    return content if len(content) > 30 else None
+
+                return None
+
+        except Exception as e:
+            self.logger.warning(f"Sina content fetch failed for {url}: {str(e)}")
+            return None
 
     async def scrape(self) -> List[Dict[str, Any]]:
         """

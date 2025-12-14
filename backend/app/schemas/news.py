@@ -37,6 +37,8 @@ class NewsArticleDetailResponse(NewsArticleResponse):
 
     created_at: datetime
     url_hash: str
+    content_text: Optional[str] = None
+    content_hash: Optional[str] = None
 
 
 class NewsArticleListResponse(BaseModel):

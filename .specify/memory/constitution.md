@@ -1,238 +1,231 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: Initial → 1.0.0
-Rationale: Initial constitution creation establishing core principles for code quality,
-           testing, extensibility, maintainability, consistency, and performance.
+Version Change: 1.0.0 → 2.0.0 (MAJOR)
+Rationale: Complete architectural redesign with new tech stack (React/TypeScript frontend,
+           Arco Design UI), new storage patterns (Adapter Pattern), heterogeneous data
+           modeling (News vs Social), and comprehensive UI/UX design system (Glassmorphism).
 
 Modified Principles:
-- NEW: I. Code Quality Standards
-- NEW: II. Testing Discipline (NON-NEGOTIABLE)
-- NEW: III. Extensibility First
-- NEW: IV. Maintainability Requirements
-- NEW: V. Consistency & Performance
+- RENAMED: I. Code Quality Standards → I. Tech Stack Mandate (tech stack now explicit)
+- RENAMED: II. Testing Discipline → IV. Coding Standards (merged with new requirements)
+- RENAMED: III. Extensibility First → II. Architectural Principles (expanded with patterns)
+- RENAMED: IV. Maintainability Requirements → (merged into Coding Standards)
+- RENAMED: V. Consistency & Performance → (merged into Architectural Principles)
+- NEW: III. UI/UX Design System (Glassmorphism, Bento Grid, color scheme)
 
 Added Sections:
-- Core Principles (5 principles)
-- Quality Gates
-- Development Standards
-- Governance
+- Tech Stack Mandate (explicit backend/frontend/database/search/storage requirements)
+- Adapter Pattern for file storage (StorageProvider interface)
+- Heterogeneous Data Modeling (News vs Social Session models)
+- Global Deduplication (Redis Bloom Filter, SimHash)
+- UI/UX Design System (Glassmorphism, Bento Grid, color guidelines)
+- Chinese comment requirement for core logic
+- No placeholder code rule (no `pass` or `TODO`)
 
-Removed Sections: None (initial creation)
+Removed Sections:
+- Detailed Test Categories (unit/integration/contract) - simplified
+- Test-First Development detailed rules - simplified
+- Quality Gates section - replaced with workflow rules
+- Governance section - simplified to workflow
 
 Templates Status:
-- ✅ .specify/templates/plan-template.md - Updated Constitution Check with explicit gates,
-     updated single project structure to match Development Standards
-- ✅ .specify/templates/tasks-template.md - Task organization supports principles
-- ✅ .specify/templates/spec-template.md - Requirements structure compatible
-- ⚠ Future: Update command templates to reference specific constitution principles
+- ✅ .specify/templates/plan-template.md - Updated Technical Context section with new tech stack
+- ✅ .specify/templates/spec-template.md - Compatible (tech-agnostic requirements)
+- ✅ .specify/templates/tasks-template.md - Updated Project Structure options
+- ⚠ Future: Update existing specs to reference new constitution version
 
-Follow-up TODOs: None
+Follow-up TODOs:
+- Update existing feature specs in /specs/ to align with new tech stack
+- Migrate any Vue.js code to React (if exists)
+- Implement StorageProvider adapter pattern in codebase
 -->
 
-# Spider News Now Constitution
+# Spider News Now 项目宪法 (Project Constitution)
+
+你是一位精通高并发爬虫系统与现代数据可视化的全栈架构师及 UI/UX 设计师。
 
 ## Core Principles
 
-### I. Code Quality Standards
+### I. 技术栈强制要求 (Tech Stack Mandate)
 
-All code MUST meet the following non-negotiable quality requirements:
+所有代码必须遵循以下技术栈要求，**严禁擅自替换**：
 
-- **Type Safety**: Explicit type annotations required for all function signatures,
-  class attributes, and return values. No `Any` types without documented justification.
-- **Error Handling**: Explicit error handling for all external calls (network, file I/O,
-  database). No silent failures. Use structured exceptions with meaningful messages.
-- **Documentation**: Every public module, class, and function MUST have docstrings
-  explaining purpose, parameters, return values, and raised exceptions.
-- **Code Reviews**: All changes require review against this constitution before merge.
-- **Linting & Formatting**: Automated checks MUST pass (no warnings tolerated).
-  Use consistent formatting tools across the project.
+- **后端**: Python 3.10+ (FastAPI), Pydantic v2, SQLAlchemy (Async/异步)
+- **前端**: React (TypeScript) + Vite + Tailwind CSS
+- **UI 组件库**: Arco Design (React 版) - *必须配合 Tailwind 进行定制，严禁混用其他组件库*
+- **数据库**: MySQL 8.0+ (字符集: utf8mb4_unicode_ci)
+- **搜索引擎**: Elasticsearch 或 Meilisearch
+- **对象存储**: 兼容 S3 协议 / MinIO
 
-**Rationale**: Code quality directly impacts system reliability, onboarding speed, and
-long-term maintenance costs. Preventable bugs from unclear code or missing types are
-unacceptable in production systems.
+**Rationale**: 统一技术栈确保团队协作效率，避免技术债务积累。前后端分离架构支持
+独立部署和扩展。
 
-### II. Testing Discipline (NON-NEGOTIABLE)
+### II. 核心架构原则 (Architectural Principles)
 
-Testing is mandatory for all features following these rules:
+系统必须遵循以下架构模式和原则：
 
-- **Test-First Development**: Write failing tests before implementation. Tests define
-  the contract and expected behavior. No feature is complete without tests.
-- **Coverage Requirements**: Minimum 80% code coverage for business logic. 100%
-  coverage required for critical paths (data persistence, API contracts, scrapers).
-- **Test Categories**: MUST include:
-  - **Unit Tests**: Isolated component testing with mocked dependencies
-  - **Integration Tests**: Contract testing for scrapers, API endpoints, database access
-  - **Contract Tests**: Verify scraper output format matches expected schema
-- **Test Organization**: Tests mirror source structure. Each module `src/foo/bar.py`
-  has corresponding `tests/unit/foo/test_bar.py` and integration tests as needed.
-- **Red-Green-Refactor**: Strictly enforce TDD cycle - failing test → passing test →
-  refactor for quality.
+#### A. 文件存储适配器模式 (Storage Adapter Pattern)
 
-**Rationale**: Scrapers are fragile by nature (external HTML changes). Testing is the
-only way to catch breakage early. API contracts must be tested to prevent downstream
-failures. Test discipline is non-negotiable for system reliability.
+- 文件系统**必须**使用策略模式/适配器模式实现
+- 创建一个抽象的 `StorageProvider` 接口
+- 具体实现（MinIO, S3, RustFS, OSS）必须通过配置切换，**严禁硬编码**
+- 示例接口定义：
+  ```python
+  class StorageProvider(Protocol):
+      async def upload(self, key: str, data: bytes) -> str: ...
+      async def download(self, key: str) -> bytes: ...
+      async def delete(self, key: str) -> bool: ...
+  ```
 
-### III. Extensibility First
+**Rationale**: 适配器模式解耦业务逻辑与具体存储实现，支持无缝切换云服务商。
 
-The system MUST support growth without architectural rewrites:
+#### B. 异构数据建模 (Heterogeneous Data Modeling)
 
-- **Plugin Architecture**: New scrapers MUST integrate without modifying core code.
-  All scrapers follow a standard interface/base class pattern.
-- **Configuration Over Code**: Scraper scheduling, source management, and feature
-  toggles MUST be configurable (environment variables, config files, database).
-- **Versioned Contracts**: API responses and scraper output MUST follow versioned
-  schemas. Breaking changes require new version endpoints.
-- **Modular Design**: Clear separation between scraper logic, data storage, API layer,
-  and presentation. Each layer independently replaceable.
-- **Dependency Injection**: Avoid tight coupling. Use dependency injection for
-  database, cache, external services to enable testing and swapping implementations.
+- **新闻 (News)**: 保持标准的 标题/正文/来源/分类 结构
+- **社交会话 (Twitter/TG)**: 必须使用**"会话/流式 (Session-based)"**模型
+  - 不要把聊天记录强行塞进文章表
+  - 支持按"话题"或"群组"聚合
+  - 维护消息时间线和回复关系
 
-**Rationale**: Requirements will evolve (new news sources, new output formats, new
-clients). Building extensibility from day one prevents costly rewrites and enables
-rapid feature development.
+**Rationale**: 不同数据源有不同的内在结构，强行统一会丢失关键语义信息。
 
-### IV. Maintainability Requirements
+#### C. 全局去重机制 (Global Deduplication)
 
-Code MUST be maintainable by future developers:
+- 实现基于 Redis (Bloom Filter) 或 数据库唯一索引的去重服务
+- 去重依据需支持：
+  - **URL Hash**: 对规范化 URL 进行 SHA256 哈希
+  - **内容指纹 (SimHash)**: 用于相似内容检测（阈值可配置）
+- 去重检查必须在入库前执行
 
-- **Principle of Least Surprise**: Code behavior should match developer expectations.
-  No clever tricks, magic methods, or implicit behavior without clear documentation.
-- **Refactoring Discipline**: Technical debt MUST be addressed within 2 sprints of
-  identification. No "temporary" hacks that become permanent.
-- **Logging & Observability**: Structured logging at appropriate levels (DEBUG for
-  tracing, INFO for lifecycle, WARNING for recoverable issues, ERROR for failures).
-  Include context (scraper ID, article count, execution time).
-- **Self-Documenting Code**: Variable/function names describe purpose. Avoid
-  abbreviations except industry-standard (URL, API, ID). Comments explain "why"
-  not "what".
-- **Dependency Management**: Pin all dependencies with exact versions. Document why
-  each dependency exists. Minimize dependency count (avoid adding libraries for
-  trivial functionality).
+**Rationale**: 爬虫系统的核心挑战之一是数据重复，早期去重减少存储成本和用户干扰。
 
-**Rationale**: Most code is read more than written. Maintainability directly impacts
-development velocity, debugging time, and onboarding efficiency. Technical debt
-compounds rapidly in scraping systems.
+### III. UI/UX 设计规范 (Design System)
 
-### V. Consistency & Performance
+前端界面必须遵循以下设计规范：
 
-Deliver consistent user experience with predictable performance:
+#### A. 视觉风格: Glassmorphism (毛玻璃)
 
-- **Response Time SLAs**: API queries MUST respond within 2 seconds for up to 1000
-  results. Pagination required for larger result sets.
-- **Scraper Performance**: Each scraper MUST complete within 60 seconds or fail with
-  clear timeout error. Scrapers MUST run concurrently without blocking each other.
-- **Data Consistency**: Duplicate detection MUST prevent storing the same article
-  multiple times (uniqueness by URL or source+title hash).
-- **Error Recovery**: Scraper failures MUST NOT crash the system. Log error, mark
-  source as failed, continue with other scrapers. Retry logic with exponential backoff.
-- **UI Consistency**: All views displaying news MUST use consistent grouping (by source),
-  sorting (newest first default), and display format (title, URL, source, category, time).
-- **Performance Monitoring**: Track and alert on key metrics (scraper success rate,
-  API response time, database query time, duplicate rate).
+毛玻璃是核心设计主题，实现要点：
+- 使用 `backdrop-filter: blur(12px)` 或更高
+- 半透明背景: `bg-white/40 dark:bg-slate-900/40`
+- 细微亮色边框: `border border-white/20`
+- 柔和阴影: `shadow-xl`
 
-**Rationale**: Users expect reliable, fast access to data. Scrapers will fail
-(websites change, network issues) - graceful degradation is mandatory. Performance
-issues compound as data grows; enforce limits early.
+#### B. 布局结构: Bento Grid (便当盒布局)
 
-## Quality Gates
+- Dashboard 的卡片必须是模块化、网格状的
+- 统一使用大圆角: `rounded-xl` 或 `rounded-2xl`
+- 卡片间距统一: `gap-4` 或 `gap-6`
+- 支持响应式布局: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
 
-All features MUST pass these gates before deployment:
+#### C. 配色方案 (Color Scheme)
 
-### Pre-Implementation Gates
+- 使用现代、充满活力的配色（如深蓝/紫渐变背景）
+- 背景示例: `bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900`
+- **避免**使用枯燥的纯白/纯灰背景
+- 强调色: 使用 Arco Design 的主题色或自定义渐变
 
-- [ ] Feature specification approved and unambiguous (no [NEEDS CLARIFICATION])
-- [ ] Implementation plan includes constitution compliance checks
-- [ ] Test strategy defined (unit + integration test plan written)
-- [ ] Performance targets identified and measurable
+**Rationale**: 统一的视觉语言提升用户体验，毛玻璃效果现代且专业。
 
-### Implementation Gates
+### IV. 编码标准 (Coding Standards)
 
-- [ ] All tests written and passing (Red-Green-Refactor cycle followed)
-- [ ] Code coverage meets minimum 80% threshold (100% for critical paths)
-- [ ] Linting and formatting checks pass with zero warnings
-- [ ] Type checking passes (mypy or equivalent) with no type errors
-- [ ] All public APIs/functions have complete docstrings
-- [ ] Code review completed with constitutional compliance verified
+所有代码必须遵循以下编码规范：
 
-### Deployment Gates
+- **类型安全**:
+  - Python 代码必须加 Type Hints（函数签名、类属性、返回值）
+  - 前端必须定义 TypeScript Interface，禁止使用 `any`
+- **注释要求**:
+  - 核心逻辑（特别是爬虫解析、去重算法）**必须包含中文注释**
+  - 注释解释"为什么"而非"做什么"
+- **错误处理**:
+  - 严禁静默失败
+  - 对外部 API (Twitter/TG) 的调用必须包含重试机制（指数退避）
+  - 所有异常必须记录日志
+- **拒绝占位符**:
+  - 禁止输出 `pass` 或 `TODO`
+  - 必须生成完整的、可运行的逻辑代码
+- **日志规范**:
+  - 使用结构化日志（JSON 格式）
+  - 日志级别: DEBUG(追踪), INFO(生命周期), WARNING(可恢复), ERROR(失败)
+  - 包含上下文（scraper_id, article_count, execution_time）
 
-- [ ] Integration tests pass in staging environment
-- [ ] Performance benchmarks meet SLA targets
-- [ ] Error handling tested (network failures, timeouts, invalid data)
-- [ ] Logging verified (structured logs with appropriate levels)
-- [ ] Rollback plan documented
-- [ ] Monitoring alerts configured for new functionality
+**Rationale**: 类型安全减少运行时错误，中文注释便于团队协作，完整代码避免技术债务。
+
+### V. 开发工作流 (Development Workflow)
+
+- 设计 API 时优先遵循 RESTful 规范
+- 前端包管理默认使用 `pnpm`
+- 数据库变更使用 Alembic 迁移管理
+- Git 提交信息使用 Conventional Commits 规范
 
 ## Development Standards
 
 ### Code Organization
 
-- **Single Project Structure**: Use `src/` for source code, `tests/` for tests at
-  repository root
-- **Layered Architecture**:
-  - `src/scrapers/`: Individual scraper implementations (inherit from base class)
-  - `src/models/`: Data models (NewsArticle, ScraperRun, etc.)
-  - `src/services/`: Business logic (duplicate detection, scheduling, data access)
-  - `src/api/`: API endpoints (query, filter, status)
-  - `src/web/`: Web interface (grouped display, UI components)
-  - `src/lib/`: Shared utilities (logging, config, helpers)
+**Web Application Structure** (backend + frontend):
 
-### Testing Structure
+```text
+backend/
+├── src/
+│   ├── scrapers/       # 爬虫实现（继承基类）
+│   ├── models/         # 数据模型 (SQLAlchemy ORM)
+│   ├── schemas/        # Pydantic 模型（请求/响应）
+│   ├── services/       # 业务逻辑（去重、调度、数据访问）
+│   ├── api/            # FastAPI 路由
+│   ├── storage/        # StorageProvider 适配器实现
+│   └── lib/            # 共享工具（日志、配置）
+└── tests/
+    ├── unit/           # 单元测试
+    ├── integration/    # 集成测试
+    └── contract/       # 契约测试
 
-- `tests/unit/`: Fast, isolated unit tests mirroring source structure
-- `tests/integration/`: Slower integration tests for external dependencies
-- `tests/contract/`: Scraper output schema validation tests
-- Test file naming: `test_<module_name>.py` for each `<module_name>.py`
+frontend/
+├── src/
+│   ├── components/     # React 组件
+│   │   └── ui/         # 基于 Arco Design 的封装组件
+│   ├── pages/          # 页面组件
+│   ├── hooks/          # 自定义 Hooks
+│   ├── services/       # API 调用服务
+│   ├── stores/         # 状态管理
+│   └── types/          # TypeScript 类型定义
+└── tests/              # 前端测试
+```
 
-### Scraper Development Pattern
+### Testing Requirements
 
-All scrapers MUST:
-1. Inherit from base class defining standard interface
-2. Implement required methods: `scrape()`, `parse()`, `validate()`
-3. Include contract test verifying output schema
-4. Handle errors gracefully (timeout, invalid HTML, network failure)
-5. Include execution metadata (start time, end time, article count, status)
+- 后端: pytest + pytest-asyncio
+- 前端: Vitest + React Testing Library
+- 最低覆盖率: 80%（业务逻辑），100%（关键路径）
+- 爬虫必须包含契约测试（验证输出 Schema）
 
 ### Performance Standards
 
-- Database queries MUST use indexes for common filters (source, category, date range)
-- API responses MUST include pagination for queries returning >100 results
-- Scraper concurrency MUST use thread/process pools (no sequential blocking execution)
-- Caching SHOULD be used for frequently accessed data (source list, category mapping)
+- API 响应时间: < 2 秒（1000 条结果）
+- 爬虫执行时间: < 60 秒（单次）
+- 数据库查询: 必须使用索引（source, category, date_range）
+- API 分页: > 100 条结果必须分页
 
 ## Governance
 
 ### Amendment Process
 
-1. **Proposal**: Document proposed change with rationale and impact analysis
-2. **Review**: Team reviews impact on existing code and templates
-3. **Migration Plan**: If breaking change, document migration steps and timeline
-4. **Approval**: Requires consensus or designated approver sign-off
-5. **Update**: Update constitution, increment version, update dependent templates
-6. **Communication**: Announce change to all developers with migration guidance
+1. 提出变更并说明理由
+2. 评估对现有代码和模板的影响
+3. 如有破坏性变更，制定迁移计划
+4. 更新宪法并增加版本号
+5. 通知团队变更内容
 
 ### Version Semantics
 
-- **MAJOR (X.0.0)**: Breaking principle removals, incompatible governance changes
-- **MINOR (0.X.0)**: New principles added, expanded guidance, new quality gates
-- **PATCH (0.0.X)**: Clarifications, typo fixes, wording improvements (no semantic change)
-
-### Compliance Review
-
-- **PR Review**: Every pull request MUST be reviewed for constitutional compliance
-- **Quarterly Audit**: Review codebase quarterly for principle adherence
-- **Violation Response**: Document violations, create remediation tasks, update
-  constitution if principle proves impractical
-- **Template Sync**: When constitution changes, verify all templates in
-  `.specify/templates/` align with new principles
+- **MAJOR (X.0.0)**: 技术栈变更、架构原则不兼容变更
+- **MINOR (0.X.0)**: 新增原则、扩展指导
+- **PATCH (0.0.X)**: 措辞优化、错误修正
 
 ### Enforcement
 
-- This constitution supersedes all other development practices and guidelines
-- Code reviewers MUST reject changes violating core principles
-- Technical debt MUST be tracked and prioritized for remediation
-- Complexity additions MUST be justified against extensibility/maintainability principles
-- Use `.specify/memory/constitution.md` as authoritative source for all development decisions
+- 此宪法高于所有其他开发实践和指南
+- 代码审查必须拒绝违反核心原则的变更
+- 使用 `.specify/memory/constitution.md` 作为所有开发决策的权威来源
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-08 | **Last Amended**: 2025-12-08
+**Version**: 2.0.0 | **Ratified**: 2025-12-08 | **Last Amended**: 2025-12-14

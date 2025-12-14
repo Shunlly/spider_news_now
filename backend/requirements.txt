@@ -1,6 +1,7 @@
 # FastAPI and ASGI server
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
+gunicorn==21.2.0
 
 # Database
 sqlalchemy==2.0.36
@@ -22,6 +23,22 @@ lxml==5.3.0
 
 # HTTP client
 httpx==0.28.1
+
+# Redis
+redis==5.2.1
+
+# Search engine
+meilisearch-python-sdk==3.3.0
+
+# Object storage
+minio==7.2.12
+
+# Content processing
+simhash==2.1.2
+aiofiles==24.1.0
+
+# Excel export
+openpyxl==3.1.5
 
 # Utilities
 python-dateutil==2.9.0.post0

@@ -33,7 +33,7 @@ class TestScraperOutputContract:
         # Should not raise validation error
         article = NewsArticleCreate(**valid_scraper_output)
 
-        assert article.url == valid_scraper_output["url"]
+        assert str(article.url) == valid_scraper_output["url"]
         assert article.title == valid_scraper_output["title"]
         assert article.source_key == valid_scraper_output["source_key"]
 
@@ -128,10 +128,11 @@ class TestScraperOutputContract:
             NewsArticleCreate(**invalid_output)
 
     def test_published_at_datetime_type(self, valid_scraper_output: Dict[str, Any]):
-        """Test that published_at must be a datetime."""
-        # Invalid: string instead of datetime
+        """Test that published_at must be a valid datetime."""
+        # Note: Pydantic v2 auto-parses ISO date strings to datetime
+        # So we test with invalid date format instead
         invalid_output = valid_scraper_output.copy()
-        invalid_output["published_at"] = "2025-12-08"
+        invalid_output["published_at"] = "invalid-date-format"
 
         with pytest.raises(ValueError):
             NewsArticleCreate(**invalid_output)

@@ -1,9 +1,12 @@
 """Base scraper class defining the interface for all news scrapers."""
 
+import asyncio
+import hashlib
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List, Dict, Any
-import hashlib
+from typing import List, Dict, Any, Optional
+
+from playwright.async_api import async_playwright, Page, Browser
 
 from app.core.logging import get_logger
 
@@ -17,6 +20,13 @@ class BaseScraper(ABC):
     All scrapers must inherit from this class and implement the required methods.
     This ensures consistent interface and behavior across all scrapers.
     """
+
+    # 是否启用正文提取（子类可覆盖）
+    FETCH_CONTENT_ENABLED = True
+    # 正文提取并发数
+    CONTENT_FETCH_CONCURRENCY = 3
+    # 正文提取超时（秒）
+    CONTENT_FETCH_TIMEOUT = 30000
 
     def __init__(self, source_key: str, display_name: str):
         """
@@ -239,6 +249,11 @@ class BaseScraper(ABC):
                 },
             )
 
+            # Step 3: Fetch content for new articles (if enabled)
+            if self.FETCH_CONTENT_ENABLED and validated_articles:
+                self.logger.info(f"Starting content extraction for {len(validated_articles)} articles")
+                validated_articles = await self._fetch_all_content(validated_articles)
+
             return validated_articles
 
         except Exception as e:
@@ -249,3 +264,169 @@ class BaseScraper(ABC):
             )
             # Return empty list on failure (graceful degradation)
             return []
+
+    async def _fetch_all_content(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Fetch content for all articles with concurrency control.
+
+        Args:
+            articles: List of article dictionaries
+
+        Returns:
+            Articles with content_text populated
+        """
+        semaphore = asyncio.Semaphore(self.CONTENT_FETCH_CONCURRENCY)
+
+        async def fetch_with_semaphore(article: Dict[str, Any]) -> Dict[str, Any]:
+            async with semaphore:
+                try:
+                    content = await self.fetch_content(article["url"])
+                    if content:
+                        article["content_text"] = content
+                        article["content_hash"] = self._generate_hash(content)
+                        self.logger.debug(f"Fetched content for: {article['title'][:30]}...")
+                except Exception as e:
+                    self.logger.warning(f"Failed to fetch content for {article['url']}: {str(e)}")
+                return article
+
+        # Fetch content concurrently
+        tasks = [fetch_with_semaphore(article) for article in articles]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out exceptions
+        fetched_articles = []
+        for result in results:
+            if isinstance(result, dict):
+                fetched_articles.append(result)
+            else:
+                self.logger.warning(f"Content fetch exception: {result}")
+
+        success_count = sum(1 for a in fetched_articles if a.get("content_text"))
+        self.logger.info(f"Content extraction completed: {success_count}/{len(articles)} successful")
+
+        return fetched_articles
+
+    async def fetch_content(self, url: str) -> Optional[str]:
+        """
+        Fetch article content from URL.
+
+        This method should be overridden by subclasses to implement
+        source-specific content extraction logic.
+
+        Default implementation uses generic extraction.
+
+        Args:
+            url: Article URL
+
+        Returns:
+            Article content text, or None if extraction fails
+        """
+        return await self._generic_content_fetch(url)
+
+    async def _generic_content_fetch(self, url: str) -> Optional[str]:
+        """
+        Generic content extraction using common article selectors.
+
+        Args:
+            url: Article URL
+
+        Returns:
+            Extracted content text
+        """
+        # Common article content selectors
+        CONTENT_SELECTORS = [
+            "article",
+            ".article-content",
+            ".article-body",
+            ".post-content",
+            ".entry-content",
+            ".content-article",
+            "#article-content",
+            "#artibody",
+            ".art_content",
+            ".main-content",
+            "[itemprop='articleBody']",
+        ]
+
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                await page.goto(url, wait_until='domcontentloaded', timeout=self.CONTENT_FETCH_TIMEOUT)
+                await asyncio.sleep(2)  # Wait for JS to load
+
+                content = None
+
+                # Try each selector
+                for selector in CONTENT_SELECTORS:
+                    try:
+                        element = page.locator(selector).first
+                        if await element.count() > 0:
+                            content = await element.inner_text()
+                            if content and len(content.strip()) > 30:
+                                break
+                    except Exception:
+                        continue
+
+                # Fallback: extract all paragraph text
+                if not content or len(content.strip()) < 30:
+                    paragraphs = page.locator("p")
+                    count = await paragraphs.count()
+                    if count > 0:
+                        texts = []
+                        for i in range(min(count, 50)):  # Limit to first 50 paragraphs
+                            try:
+                                text = await paragraphs.nth(i).inner_text()
+                                if text and len(text.strip()) > 20:
+                                    texts.append(text.strip())
+                            except Exception:
+                                continue
+                        if texts:
+                            content = "\n\n".join(texts)
+
+                await browser.close()
+
+                if content:
+                    # Clean up content
+                    content = self._clean_content(content)
+                    return content if len(content) > 50 else None
+
+                return None
+
+        except Exception as e:
+            self.logger.warning(f"Generic content fetch failed for {url}: {str(e)}")
+            return None
+
+    def _clean_content(self, content: str) -> str:
+        """
+        Clean extracted content text.
+
+        Args:
+            content: Raw content text
+
+        Returns:
+            Cleaned content text
+        """
+        import re
+
+        # Remove extra whitespace
+        content = re.sub(r'\s+', ' ', content)
+
+        # Remove common unwanted patterns
+        patterns_to_remove = [
+            r'点击进入专题.*',
+            r'责任编辑.*',
+            r'相关阅读.*',
+            r'延伸阅读.*',
+            r'原标题.*',
+            r'来源：.*',
+            r'\[责编.*\]',
+            r'编辑：.*',
+            r'记者：.*',
+        ]
+
+        for pattern in patterns_to_remove:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+
+        return content.strip()

@@ -29,6 +29,7 @@ router = APIRouter(prefix="/news", tags=["news"])
 async def get_articles(
     source: Optional[str] = Query(None, description="Filter by source key"),
     category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search in title"),
     start_date: Optional[datetime] = Query(None, description="Start date (ISO 8601)"),
     end_date: Optional[datetime] = Query(None, description="End date (ISO 8601)"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -43,6 +44,7 @@ async def get_articles(
     Supports filtering by:
     - source: Filter by news source
     - category: Filter by article category
+    - search: Search in article title
     - start_date/end_date: Filter by publication date range
     - sort_by: Sort by field (published_at, scraped_at, title)
     - sort_order: Sort order (asc, desc)
@@ -53,6 +55,7 @@ async def get_articles(
         db,
         source=source,
         category=category,
+        search=search,
         start_date=start_date,
         end_date=end_date,
         page=page,

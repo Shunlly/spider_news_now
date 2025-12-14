@@ -3,7 +3,7 @@
 import asyncio
 import time
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from playwright.async_api import async_playwright
 
@@ -19,10 +19,50 @@ class QQScraper(BaseScraper):
     - Tech (tech): https://news.qq.com/ch/tech
     """
 
+    # 腾讯新闻正文选择器
+    CONTENT_SELECTORS = [
+        ".content-article",
+        "#articleContent",
+        ".article-content",
+        ".LEFT",
+    ]
+
     def __init__(self):
         super().__init__(source_key="qq", display_name="腾讯新闻")
         self.sports_url = 'https://news.qq.com/ch/sports'
         self.tech_url = 'https://news.qq.com/ch/tech'
+
+    async def fetch_content(self, url: str) -> Optional[str]:
+        """Fetch article content from QQ News."""
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+
+                await page.goto(url, wait_until='domcontentloaded', timeout=self.CONTENT_FETCH_TIMEOUT)
+                await asyncio.sleep(2)
+
+                content = None
+                for selector in self.CONTENT_SELECTORS:
+                    try:
+                        element = page.locator(selector).first
+                        if await element.count() > 0:
+                            content = await element.inner_text()
+                            if content and len(content.strip()) > 30:
+                                break
+                    except Exception:
+                        continue
+
+                await browser.close()
+
+                if content:
+                    content = self._clean_content(content)
+                    return content if len(content) > 30 else None
+                return None
+
+        except Exception as e:
+            self.logger.warning(f"QQ content fetch failed for {url}: {str(e)}")
+            return None
 
     async def scrape(self) -> List[Dict[str, Any]]:
         """Scrape all channels from QQ News."""

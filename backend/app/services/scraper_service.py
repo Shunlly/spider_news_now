@@ -171,6 +171,7 @@ class ScraperService:
 
             # Step 5: Insert new articles (逐个插入，跳过重复)
             inserted_count = 0
+            inserted_articles = []
             if new_articles:
                 for article_data in new_articles:
                     try:
@@ -179,23 +180,7 @@ class ScraperService:
                         await db.commit()
                         await db.refresh(article_model)
                         inserted_count += 1
-
-                        # Index to Meilisearch
-                        try:
-                            search_service = get_search_service()
-                            await search_service.index_documents([{
-                                "id": article_model.id,
-                                "title": article_model.title,
-                                "url": article_model.url,
-                                "source_key": article_model.source_key,
-                                "category": article_model.category,
-                                "content": article_model.content_text,
-                                "published_at": article_model.published_at,
-                                "created_at": article_model.created_at,
-                            }])
-                        except Exception as search_e:
-                            logger.warning(f"Failed to index article to Meilisearch: {search_e}")
-
+                        inserted_articles.append(article_model)
                     except Exception as insert_e:
                         await db.rollback()
                         if "Duplicate entry" in str(insert_e):
@@ -205,6 +190,25 @@ class ScraperService:
                         continue
 
                 logger.info(f"Inserted {inserted_count} new articles")
+
+                # 批量索引到 Meilisearch（在插入循环外）
+                if inserted_articles:
+                    try:
+                        search_service = get_search_service()
+                        index_docs = [{
+                            "id": m.id,
+                            "title": m.title,
+                            "url": m.url,
+                            "source_key": m.source_key,
+                            "category": m.category,
+                            "content": m.content_text,
+                            "published_at": m.published_at,
+                            "created_at": m.created_at,
+                        } for m in inserted_articles]
+                        await search_service.index_documents(index_docs)
+                        logger.info(f"Indexed {len(index_docs)} articles to Meilisearch")
+                    except Exception as search_e:
+                        logger.warning(f"Failed to index articles to Meilisearch: {search_e}")
 
             # Step 6: Update ScraperRun with statistics
             end_time = datetime.now()

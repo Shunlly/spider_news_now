@@ -50,3 +50,12 @@ export type {
   NewsSource,
   SourcesResponse,
 } from './scraperService'
+export { default as telegramService } from './telegramService'
+export type {
+  TelegramUserInfo,
+  TelegramDialog,
+  TelegramEntity,
+  TelegramMessage,
+  TelegramBaseResponse,
+  TelegramStatusResponse,
+} from './telegramService'

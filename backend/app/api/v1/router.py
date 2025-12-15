@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     scrapers,
     search,
     social,
+    telegram,
 )
 
 # Create main API router
@@ -23,3 +24,4 @@ api_router.include_router(search.router)
 api_router.include_router(credentials.router)
 api_router.include_router(proxies.router)
 api_router.include_router(exports.router)
+api_router.include_router(telegram.router)

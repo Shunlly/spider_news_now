@@ -12,6 +12,7 @@ import {
   IconDashboard,
   IconFile,
   IconMessage,
+  IconSend,
   IconSearch,
   IconSettings,
   IconMenu,
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { path: '/dashboard', label: '仪表盘', icon: <IconDashboard /> },
   { path: '/news', label: '新闻管理', icon: <IconFile /> },
   { path: '/social', label: '社交数据', icon: <IconMessage /> },
+  { path: '/telegram', label: 'Telegram', icon: <IconSend /> },
   { path: '/search', label: '全文搜索', icon: <IconSearch /> },
   { path: '/settings', label: '系统设置', icon: <IconSettings /> },
 ]

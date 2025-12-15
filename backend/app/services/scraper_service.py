@@ -140,23 +140,28 @@ class ScraperService:
             # Step 4.5: Update existing articles with content if they don't have it
             content_updated = 0
             for article in duplicate_articles:
-                if article.get("content_text") and article.get("url_hash"):
+                if (article.get("content_text") or article.get("content_url")) and article.get("url_hash"):
                     # Check if existing article needs content update
                     existing = await db.execute(
                         select(NewsArticle).where(
                             NewsArticle.url_hash == article["url_hash"],
-                            NewsArticle.content_text.is_(None)
+                            NewsArticle.content_url.is_(None)
                         )
                     )
                     existing_article = existing.scalar_one_or_none()
                     if existing_article:
+                        update_values = {
+                            "content_hash": article.get("content_hash")
+                        }
+                        if article.get("content_url"):
+                            update_values["content_url"] = article["content_url"]
+                        if article.get("content_text"):
+                            update_values["content_text"] = article["content_text"]
+
                         await db.execute(
                             update(NewsArticle)
                             .where(NewsArticle.id == existing_article.id)
-                            .values(
-                                content_text=article["content_text"],
-                                content_hash=article.get("content_hash")
-                            )
+                            .values(**update_values)
                         )
                         content_updated += 1
 

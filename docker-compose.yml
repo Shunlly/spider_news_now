@@ -5,6 +5,11 @@ services:
     image: mysql:8.0
     container_name: news_scraper_mysql
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-news_scraper}
@@ -12,7 +17,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-news_password}
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "33060:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -28,8 +33,13 @@ services:
     image: redis:7.2-alpine
     container_name: news_scraper_redis
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     ports:
-      - "6379:6379"
+      - "63790:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -46,12 +56,17 @@ services:
     image: getmeili/meilisearch:v1.11
     container_name: news_scraper_meilisearch
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
     environment:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey123}
       MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_NO_ANALYTICS: "true"
     ports:
-      - "7700:7700"
+      - "7701:7700"
     volumes:
       - meilisearch_data:/meili_data
     networks:
@@ -67,12 +82,17 @@ services:
     image: minio/minio:latest
     container_name: news_scraper_minio
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     ports:
-      - "9000:9000"   # API 端口
-      - "9001:9001"   # Console 端口
+      - "9010:9000"   # API 端口
+      - "9011:9001"   # Console 端口
     volumes:
       - minio_data:/data
     networks:
@@ -90,6 +110,11 @@ services:
       dockerfile: Dockerfile
     container_name: news_scraper_backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
     depends_on:
       mysql:
         condition: service_healthy
@@ -121,7 +146,7 @@ services:
       ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:5173,http://frontend
       TZ: Asia/Shanghai
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend/logs:/app/logs
     networks:
@@ -134,16 +159,21 @@ services:
 
   frontend:
     build:
-      context: ./frontend-react
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: news_scraper_frontend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
     depends_on:
       - backend
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
       - news_scraper_network
     healthcheck:

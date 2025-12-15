@@ -57,6 +57,10 @@ class NewsArticle(Base):
         Text, nullable=True,
         comment="正文纯文本（用于全文搜索）"
     )
+    content_url: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True,
+        comment="正文存储路径（MinIO/RustFS）"
+    )
     simhash: Mapped[Optional[int]] = mapped_column(
         BigInteger, nullable=True, index=True,
         comment="内容 SimHash 指纹（用于相似内容检测）"

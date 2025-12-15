@@ -36,13 +36,13 @@ class SinaScraper(BaseScraper):
 
     async def fetch_content(self, url: str) -> Optional[str]:
         """
-        Fetch article content from Sina News.
+        Fetch article content from Sina News, preserving images.
 
         Args:
             url: Article URL
 
         Returns:
-            Article content text
+            Article content HTML with images
         """
         try:
             async with async_playwright() as p:
@@ -54,13 +54,13 @@ class SinaScraper(BaseScraper):
 
                 content = None
 
-                # Try Sina-specific selectors
+                # Try Sina-specific selectors - get HTML to preserve images
                 for selector in self.CONTENT_SELECTORS:
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            content = await element.inner_text()
-                            if content and len(content.strip()) > 30:
+                            content = await element.inner_html()
+                            if content and len(content.strip()) > 50:
                                 break
                     except Exception:
                         continue
@@ -68,8 +68,8 @@ class SinaScraper(BaseScraper):
                 await browser.close()
 
                 if content:
-                    content = self._clean_content(content)
-                    return content if len(content) > 30 else None
+                    content = self._clean_html_content(content, url)
+                    return content if len(content) > 50 else None
 
                 return None
 

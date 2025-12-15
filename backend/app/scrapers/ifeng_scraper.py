@@ -39,7 +39,7 @@ class IfengScraper(BaseScraper):
         self.military_url = "https://mil.ifeng.com/"
 
     async def fetch_content(self, url: str) -> Optional[str]:
-        """Fetch article content from Ifeng News."""
+        """Fetch article content from Ifeng News, preserving images."""
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -53,8 +53,9 @@ class IfengScraper(BaseScraper):
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            content = await element.inner_text()
-                            if content and len(content.strip()) > 30:
+                            # Get HTML to preserve images
+                            content = await element.inner_html()
+                            if content and len(content.strip()) > 50:
                                 break
                     except Exception:
                         continue
@@ -62,8 +63,8 @@ class IfengScraper(BaseScraper):
                 await browser.close()
 
                 if content:
-                    content = self._clean_content(content)
-                    return content if len(content) > 30 else None
+                    content = self._clean_html_content(content, url)
+                    return content if len(content) > 50 else None
                 return None
 
         except Exception as e:
@@ -98,9 +99,9 @@ class IfengScraper(BaseScraper):
                 page.set_default_timeout(120000)
 
                 await page.goto(url, wait_until="domcontentloaded", timeout=120000)
-                await asyncio.sleep(5)
+                await asyncio.sleep(8)  # Increased wait time for JS to load
 
-                # Extract allData from JavaScript
+                # Method 1: Extract allData from JavaScript
                 all_data = await page.evaluate("() => window.allData")
 
                 if all_data:
@@ -140,6 +141,31 @@ class IfengScraper(BaseScraper):
                                 except Exception as e:
                                     self.logger.warning(f"Failed to extract article from {key}: {str(e)}")
                                     continue
+
+                # Method 2: Fallback to DOM extraction if allData didn't yield results
+                if len(news_data) == 0:
+                    self.logger.info(f"allData extraction yielded 0 results, trying DOM extraction for {category}")
+                    # Try extracting from common link patterns
+                    article_links = await page.locator("a[href*='ifeng.com'][href*='/c/']").all()
+                    for item in article_links:
+                        try:
+                            href = await item.get_attribute("href")
+                            if not href or href in seen_urls:
+                                continue
+
+                            title = await item.inner_text()
+                            if not title or not title.strip() or len(title.strip()) < 5:
+                                continue
+
+                            seen_urls.add(href)
+                            news_data.append({
+                                "url": href,
+                                "title": title.strip(),
+                                "category": category,
+                                "published_at": datetime.now(),
+                            })
+                        except Exception:
+                            continue
 
                 await browser.close()
 

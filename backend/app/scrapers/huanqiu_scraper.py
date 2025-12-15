@@ -41,13 +41,13 @@ class HuanqiuScraper(BaseScraper):
 
     async def fetch_content(self, url: str) -> Optional[str]:
         """
-        Fetch article content from Huanqiu News.
+        Fetch article content from Huanqiu News, preserving images.
 
         Args:
             url: Article URL
 
         Returns:
-            Article content text
+            Article content HTML with images
         """
         try:
             async with async_playwright() as p:
@@ -64,16 +64,18 @@ class HuanqiuScraper(BaseScraper):
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            # For textarea elements, get text_content and strip HTML
+                            # For textarea elements, get raw HTML content
                             if 'textarea' in selector:
                                 raw_content = await element.text_content()
                                 if raw_content:
-                                    content = self._strip_html_tags(raw_content)
+                                    # Keep HTML to preserve images
+                                    content = raw_content
                             else:
-                                content = await element.inner_text()
+                                # Get HTML to preserve images
+                                content = await element.inner_html()
 
-                            # Accept content with at least 30 characters
-                            if content and len(content.strip()) > 30:
+                            # Accept content with at least 50 characters
+                            if content and len(content.strip()) > 50:
                                 break
                             else:
                                 content = None
@@ -83,8 +85,8 @@ class HuanqiuScraper(BaseScraper):
                 await browser.close()
 
                 if content:
-                    content = self._clean_content(content)
-                    return content if len(content) > 30 else None
+                    content = self._clean_html_content(content, url)
+                    return content if len(content) > 50 else None
 
                 return None
 

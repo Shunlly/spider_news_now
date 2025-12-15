@@ -200,22 +200,24 @@ class NewsService:
         total_result = await db.execute(total_stmt)
         total_articles = total_result.scalar() or 0
 
-        # Articles today
+        # Articles today (use scraped_at instead of published_at)
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_stmt = select(func.count(NewsArticle.id)).where(
-            NewsArticle.published_at >= today_start
+            NewsArticle.scraped_at >= today_start
         )
         today_result = await db.execute(today_stmt)
         articles_today = today_result.scalar() or 0
 
-        # By source
+        # By source (today's articles only for pie chart)
         source_stmt = select(
             NewsSource.source_key,
             NewsSource.display_name,
             func.count(NewsArticle.id).label("article_count"),
             func.max(NewsArticle.scraped_at).label("last_scraped"),
         ).join(
-            NewsArticle, NewsSource.source_key == NewsArticle.source_key, isouter=True
+            NewsArticle,
+            (NewsSource.source_key == NewsArticle.source_key) & (NewsArticle.scraped_at >= today_start),
+            isouter=True
         ).group_by(
             NewsSource.source_key, NewsSource.display_name
         )

@@ -25,7 +25,7 @@ class WangyiScraper(BaseScraper):
         self.base_url = "https://culture.163.com/"
 
     async def fetch_content(self, url: str) -> Optional[str]:
-        """Fetch article content from Wangyi News."""
+        """Fetch article content from Wangyi News, preserving images."""
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -39,8 +39,9 @@ class WangyiScraper(BaseScraper):
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            content = await element.inner_text()
-                            if content and len(content.strip()) > 30:
+                            # Get HTML to preserve images
+                            content = await element.inner_html()
+                            if content and len(content.strip()) > 50:
                                 break
                     except Exception:
                         continue
@@ -48,8 +49,8 @@ class WangyiScraper(BaseScraper):
                 await browser.close()
 
                 if content:
-                    content = self._clean_content(content)
-                    return content if len(content) > 30 else None
+                    content = self._clean_html_content(content, url)
+                    return content if len(content) > 50 else None
                 return None
 
         except Exception as e:
@@ -69,89 +70,81 @@ class WangyiScraper(BaseScraper):
                 await page.goto(self.base_url, wait_until="domcontentloaded", timeout=120000)
                 await asyncio.sleep(5)
 
-                # Method 1: Extract from swiper-slide carousel items
-                carousel_items = await page.locator("div.swiper-slide a").all()
-                for item in carousel_items:
+                # Method 1: Extract from article links with /dy/article/ pattern
+                article_links = await page.locator("a[href*='/dy/article/']").all()
+                for item in article_links:
                     try:
                         href = await item.get_attribute("href")
-                        if not href or "163.com" not in href:
+                        if not href or href in seen_urls:
                             continue
 
-                        # Get title from h3 or alt attribute of img
+                        # Get title - try multiple ways
+                        title = None
+                        # Try h3 first
                         h3_locator = item.locator("h3")
                         if await h3_locator.count() > 0:
                             title = await h3_locator.first.inner_text()
                         else:
-                            img_locator = item.locator("img")
-                            if await img_locator.count() > 0:
-                                title = await img_locator.first.get_attribute("alt")
-                            else:
-                                continue
+                            # Try getting text content directly
+                            title = await item.inner_text()
 
-                        if not title or not title.strip():
+                        if not title or not title.strip() or len(title.strip()) < 5:
                             continue
 
-                        if href not in seen_urls:
-                            seen_urls.add(href)
-                            news_data.append({
-                                "url": href,
-                                "title": title.strip(),
-                                "category": "culture",
-                                "published_at": datetime.now(),
-                            })
+                        seen_urls.add(href)
+                        news_data.append({
+                            "url": href,
+                            "title": title.strip(),
+                            "category": "culture",
+                            "published_at": datetime.now(),
+                        })
                     except Exception as e:
-                        self.logger.warning(f"Failed to extract carousel article: {str(e)}")
+                        self.logger.warning(f"Failed to extract dy/article link: {str(e)}")
                         continue
 
-                # Method 2: Extract from a.item list
-                list_items = await page.locator("a.item").all()
-                for item in list_items:
+                # Method 2: Extract from regular article links
+                regular_links = await page.locator("a[href*='/article/']").all()
+                for item in regular_links:
                     try:
                         href = await item.get_attribute("href")
-                        if not href or "163.com" not in href:
+                        if not href or href in seen_urls:
+                            continue
+                        if "163.com" not in href:
                             continue
 
+                        title = None
                         h3_locator = item.locator("h3")
                         if await h3_locator.count() > 0:
                             title = await h3_locator.first.inner_text()
                         else:
+                            title = await item.inner_text()
+
+                        if not title or not title.strip() or len(title.strip()) < 5:
                             continue
 
-                        if not title or not title.strip():
-                            continue
-
-                        if href not in seen_urls:
-                            seen_urls.add(href)
-                            news_data.append({
-                                "url": href,
-                                "title": title.strip(),
-                                "category": "culture",
-                                "published_at": datetime.now(),
-                            })
+                        seen_urls.add(href)
+                        news_data.append({
+                            "url": href,
+                            "title": title.strip(),
+                            "category": "culture",
+                            "published_at": datetime.now(),
+                        })
                     except Exception as e:
-                        self.logger.warning(f"Failed to extract list article: {str(e)}")
                         continue
 
-                # Method 3: Extract from any remaining news links with title h3
-                all_links = await page.locator("a[href*='163.com']").all()
-                for item in all_links:
+                # Method 3: Extract from img alt attributes for image-based links
+                img_links = await page.locator("a[href*='163.com'] img[alt]").all()
+                for img in img_links:
                     try:
-                        href = await item.get_attribute("href")
+                        parent_link = img.locator("xpath=..")
+                        href = await parent_link.get_attribute("href")
                         if not href or href in seen_urls:
                             continue
                         if "/article/" not in href and "/dy/article/" not in href:
                             continue
 
-                        h3_locator = item.locator("h3")
-                        title_locator = item.locator(".title h3")
-                        if await title_locator.count() > 0:
-                            title = await title_locator.first.inner_text()
-                        elif await h3_locator.count() > 0:
-                            title = await h3_locator.first.inner_text()
-                        else:
-                            continue
-
-                        if not title or not title.strip():
+                        title = await img.get_attribute("alt")
+                        if not title or not title.strip() or len(title.strip()) < 5:
                             continue
 
                         seen_urls.add(href)

@@ -268,23 +268,55 @@ class BaseScraper(ABC):
     async def _fetch_all_content(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Fetch content for all articles with concurrency control.
+        Upload content to MinIO/RustFS storage.
 
         Args:
             articles: List of article dictionaries
 
         Returns:
-            Articles with content_text populated
+            Articles with content_url populated (storage path)
         """
+        from app.services.storage_service import get_storage_service
+        from datetime import datetime
+        import re
+
+        storage_service = get_storage_service()
         semaphore = asyncio.Semaphore(self.CONTENT_FETCH_CONCURRENCY)
+
+        def extract_plain_text(html_content: str) -> str:
+            """Extract plain text from HTML for search indexing."""
+            # Remove HTML tags
+            text = re.sub(r'<[^>]+>', ' ', html_content)
+            # Clean up whitespace
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text[:10000]  # Limit for search index
 
         async def fetch_with_semaphore(article: Dict[str, Any]) -> Dict[str, Any]:
             async with semaphore:
                 try:
                     content = await self.fetch_content(article["url"])
                     if content:
-                        article["content_text"] = content
-                        article["content_hash"] = self._generate_hash(content)
-                        self.logger.debug(f"Fetched content for: {article['title'][:30]}...")
+                        # Generate storage path: articles/{source}/{date}/{url_hash}.html
+                        date_str = datetime.now().strftime("%Y/%m/%d")
+                        file_path = f"articles/{self.source_key}/{date_str}/{article['url_hash']}.html"
+
+                        # Upload to MinIO/RustFS
+                        try:
+                            content_url = await storage_service.upload(
+                                file_path,
+                                content.encode('utf-8'),
+                                content_type="text/html; charset=utf-8"
+                            )
+                            article["content_url"] = file_path  # Store path, not full URL
+                            article["content_hash"] = self._generate_hash(content)
+                            # Extract plain text for search indexing (optional, limited)
+                            article["content_text"] = extract_plain_text(content)
+                            self.logger.debug(f"Uploaded content for: {article['title'][:30]}...")
+                        except Exception as e:
+                            self.logger.warning(f"Failed to upload content to storage: {str(e)}")
+                            # Fallback: store content directly if upload fails
+                            article["content_text"] = content
+                            article["content_hash"] = self._generate_hash(content)
                 except Exception as e:
                     self.logger.warning(f"Failed to fetch content for {article['url']}: {str(e)}")
                 return article
@@ -301,7 +333,7 @@ class BaseScraper(ABC):
             else:
                 self.logger.warning(f"Content fetch exception: {result}")
 
-        success_count = sum(1 for a in fetched_articles if a.get("content_text"))
+        success_count = sum(1 for a in fetched_articles if a.get("content_url") or a.get("content_text"))
         self.logger.info(f"Content extraction completed: {success_count}/{len(articles)} successful")
 
         return fetched_articles
@@ -326,12 +358,13 @@ class BaseScraper(ABC):
     async def _generic_content_fetch(self, url: str) -> Optional[str]:
         """
         Generic content extraction using common article selectors.
+        Extracts HTML content to preserve images.
 
         Args:
             url: Article URL
 
         Returns:
-            Extracted content text
+            Extracted content HTML with images preserved
         """
         # Common article content selectors
         CONTENT_SELECTORS = [
@@ -358,38 +391,51 @@ class BaseScraper(ABC):
 
                 content = None
 
-                # Try each selector
+                # Try each selector - get HTML to preserve images
                 for selector in CONTENT_SELECTORS:
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            content = await element.inner_text()
-                            if content and len(content.strip()) > 30:
+                            # Get HTML content to preserve images
+                            content = await element.inner_html()
+                            if content and len(content.strip()) > 50:
                                 break
                     except Exception:
                         continue
 
-                # Fallback: extract all paragraph text
-                if not content or len(content.strip()) < 30:
+                # Fallback: extract paragraphs and images
+                if not content or len(content.strip()) < 50:
+                    parts = []
+                    # Get paragraphs
                     paragraphs = page.locator("p")
-                    count = await paragraphs.count()
-                    if count > 0:
-                        texts = []
-                        for i in range(min(count, 50)):  # Limit to first 50 paragraphs
-                            try:
-                                text = await paragraphs.nth(i).inner_text()
-                                if text and len(text.strip()) > 20:
-                                    texts.append(text.strip())
-                            except Exception:
-                                continue
-                        if texts:
-                            content = "\n\n".join(texts)
+                    p_count = await paragraphs.count()
+                    for i in range(min(p_count, 50)):
+                        try:
+                            html = await paragraphs.nth(i).inner_html()
+                            if html and len(html.strip()) > 20:
+                                parts.append(f"<p>{html}</p>")
+                        except Exception:
+                            continue
+
+                    # Get images from article area
+                    images = page.locator("article img, .article img, .content img, .main img")
+                    img_count = await images.count()
+                    for i in range(min(img_count, 20)):
+                        try:
+                            img_html = await images.nth(i).evaluate("el => el.outerHTML")
+                            if img_html:
+                                parts.append(img_html)
+                        except Exception:
+                            continue
+
+                    if parts:
+                        content = "\n".join(parts)
 
                 await browser.close()
 
                 if content:
-                    # Clean up content
-                    content = self._clean_content(content)
+                    # Clean and fix image URLs
+                    content = self._clean_html_content(content, url)
                     return content if len(content) > 50 else None
 
                 return None
@@ -428,5 +474,75 @@ class BaseScraper(ABC):
 
         for pattern in patterns_to_remove:
             content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+
+        return content.strip()
+
+    def _clean_html_content(self, content: str, base_url: str) -> str:
+        """
+        Clean HTML content and fix image URLs.
+
+        Args:
+            content: Raw HTML content
+            base_url: Base URL for resolving relative paths
+
+        Returns:
+            Cleaned HTML content with absolute image URLs
+        """
+        import re
+        from urllib.parse import urljoin, urlparse
+
+        # Remove script and style tags
+        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
+        content = re.sub(r'<style[^>]*>.*?</style>', '', content, flags=re.DOTALL | re.IGNORECASE)
+
+        # Remove comments
+        content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+
+        # Remove unwanted tags but keep content
+        unwanted_tags = ['iframe', 'noscript', 'form', 'input', 'button', 'nav', 'footer', 'aside']
+        for tag in unwanted_tags:
+            content = re.sub(rf'<{tag}[^>]*>.*?</{tag}>', '', content, flags=re.DOTALL | re.IGNORECASE)
+            content = re.sub(rf'<{tag}[^>]*/>', '', content, flags=re.IGNORECASE)
+
+        # Fix relative image URLs to absolute URLs
+        def fix_img_url(match):
+            full_tag = match.group(0)
+            src_match = re.search(r'src=["\']([^"\']+)["\']', full_tag)
+            if src_match:
+                src = src_match.group(1)
+                # Skip data URLs and already absolute URLs
+                if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
+                    return full_tag
+                # Convert relative URL to absolute
+                absolute_url = urljoin(base_url, src)
+                return full_tag.replace(src_match.group(0), f'src="{absolute_url}"')
+            return full_tag
+
+        content = re.sub(r'<img[^>]+>', fix_img_url, content, flags=re.IGNORECASE)
+
+        # Also handle data-src (lazy loading images)
+        def fix_data_src(match):
+            full_tag = match.group(0)
+            # If has data-src but src is placeholder, use data-src
+            data_src_match = re.search(r'data-src=["\']([^"\']+)["\']', full_tag)
+            if data_src_match:
+                data_src = data_src_match.group(1)
+                if not data_src.startswith('data:'):
+                    absolute_url = urljoin(base_url, data_src) if not data_src.startswith('http') else data_src
+                    # Replace or add src attribute
+                    if 'src=' in full_tag:
+                        full_tag = re.sub(r'src=["\'][^"\']*["\']', f'src="{absolute_url}"', full_tag)
+                    else:
+                        full_tag = full_tag.replace('<img', f'<img src="{absolute_url}"')
+            return full_tag
+
+        content = re.sub(r'<img[^>]+>', fix_data_src, content, flags=re.IGNORECASE)
+
+        # Remove empty tags
+        content = re.sub(r'<(\w+)[^>]*>\s*</\1>', '', content)
+
+        # Clean up extra whitespace
+        content = re.sub(r'\n\s*\n', '\n\n', content)
+        content = re.sub(r'  +', ' ', content)
 
         return content.strip()

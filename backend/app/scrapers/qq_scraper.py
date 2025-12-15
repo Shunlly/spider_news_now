@@ -33,7 +33,7 @@ class QQScraper(BaseScraper):
         self.tech_url = 'https://news.qq.com/ch/tech'
 
     async def fetch_content(self, url: str) -> Optional[str]:
-        """Fetch article content from QQ News."""
+        """Fetch article content from QQ News, preserving images."""
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -47,8 +47,9 @@ class QQScraper(BaseScraper):
                     try:
                         element = page.locator(selector).first
                         if await element.count() > 0:
-                            content = await element.inner_text()
-                            if content and len(content.strip()) > 30:
+                            # Get HTML to preserve images
+                            content = await element.inner_html()
+                            if content and len(content.strip()) > 50:
                                 break
                     except Exception:
                         continue
@@ -56,8 +57,8 @@ class QQScraper(BaseScraper):
                 await browser.close()
 
                 if content:
-                    content = self._clean_content(content)
-                    return content if len(content) > 30 else None
+                    content = self._clean_html_content(content, url)
+                    return content if len(content) > 50 else None
                 return None
 
         except Exception as e:

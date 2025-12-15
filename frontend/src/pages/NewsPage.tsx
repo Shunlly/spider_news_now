@@ -17,6 +17,8 @@ import {
   IconCalendar,
   IconClose,
   IconFile,
+  IconDoubleLeft,
+  IconDoubleRight,
 } from '@arco-design/web-react/icon'
 import {
   newsService,
@@ -33,7 +35,8 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(false)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
+  const [jumpPage, setJumpPage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedSource, setSelectedSource] = useState('')
@@ -313,44 +316,157 @@ export default function NewsPage() {
         )}
 
         {/* 分页 */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
-            <span className="text-sm text-white/50">
-              第 {page} / {totalPages} 页
-            </span>
-            <div className="flex items-center gap-2">
+        {totalPages > 0 && (
+          <div className="flex flex-wrap items-center justify-between px-4 py-3 border-t border-white/10 gap-4">
+            {/* 左侧：分页信息和每页数量选择 */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-white/50">
+                共 {total.toLocaleString()} 条，第 {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} 条
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white/50">每页</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setPage(1)
+                  }}
+                  className="bg-slate-800 border border-white/20 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-white/40"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-sm text-white/50">条</span>
+              </div>
+            </div>
+
+            {/* 中间：分页按钮 */}
+            <div className="flex items-center gap-1">
+              {/* 首页 */}
+              <button
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="首页"
+              >
+                <IconDoubleLeft className="text-white" />
+              </button>
+              {/* 上一页 */}
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="上一页"
               >
                 <IconLeft className="text-white" />
               </button>
+
+              {/* 页码按钮 */}
               <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const pageNum = Math.max(1, Math.min(page - 2, totalPages - 4)) + i
-                  if (pageNum > totalPages) return null
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      className={`w-8 h-8 rounded-lg text-sm transition-colors ${
-                        pageNum === page
-                          ? 'bg-white/20 text-white'
-                          : 'hover:bg-white/10 text-white/60'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
+                {(() => {
+                  const pages: (number | string)[] = []
+                  const showPages = 7 // 显示的页码数量
+
+                  if (totalPages <= showPages) {
+                    // 总页数小于等于显示数量，全部显示
+                    for (let i = 1; i <= totalPages; i++) {
+                      pages.push(i)
+                    }
+                  } else {
+                    // 总页数大于显示数量，智能显示
+                    if (page <= 4) {
+                      // 当前页靠近开头
+                      for (let i = 1; i <= 5; i++) pages.push(i)
+                      pages.push('...')
+                      pages.push(totalPages)
+                    } else if (page >= totalPages - 3) {
+                      // 当前页靠近结尾
+                      pages.push(1)
+                      pages.push('...')
+                      for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i)
+                    } else {
+                      // 当前页在中间
+                      pages.push(1)
+                      pages.push('...')
+                      for (let i = page - 1; i <= page + 1; i++) pages.push(i)
+                      pages.push('...')
+                      pages.push(totalPages)
+                    }
+                  }
+
+                  return pages.map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-white/40">...</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p as number)}
+                        className={`min-w-[32px] h-8 px-2 rounded-lg text-sm transition-colors ${
+                          p === page
+                            ? 'bg-indigo-500/80 text-white font-medium'
+                            : 'hover:bg-white/10 text-white/60'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
                   )
-                })}
+                })()}
               </div>
+
+              {/* 下一页 */}
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="下一页"
               >
                 <IconRight className="text-white" />
+              </button>
+              {/* 末页 */}
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+                className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="末页"
+              >
+                <IconDoubleRight className="text-white" />
+              </button>
+            </div>
+
+            {/* 右侧：跳转 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/50">跳至</span>
+              <input
+                type="text"
+                value={jumpPage}
+                onChange={(e) => setJumpPage(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const targetPage = parseInt(jumpPage)
+                    if (targetPage >= 1 && targetPage <= totalPages) {
+                      setPage(targetPage)
+                      setJumpPage('')
+                    }
+                  }
+                }}
+                placeholder={String(page)}
+                className="w-16 bg-slate-800 border border-white/20 rounded px-2 py-1 text-white text-sm text-center focus:outline-none focus:border-white/40"
+              />
+              <span className="text-sm text-white/50">页</span>
+              <button
+                onClick={() => {
+                  const targetPage = parseInt(jumpPage)
+                  if (targetPage >= 1 && targetPage <= totalPages) {
+                    setPage(targetPage)
+                    setJumpPage('')
+                  }
+                }}
+                className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-sm text-white transition-colors"
+              >
+                确定
               </button>
             </div>
           </div>

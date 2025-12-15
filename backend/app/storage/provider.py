@@ -10,7 +10,7 @@ Storage Provider Interface - Following Constitution II.A Adapter Pattern
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable

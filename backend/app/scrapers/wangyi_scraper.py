@@ -129,7 +129,7 @@ class WangyiScraper(BaseScraper):
                             "category": "culture",
                             "published_at": datetime.now(),
                         })
-                    except Exception as e:
+                    except Exception:
                         continue
 
                 # Method 3: Extract from img alt attributes for image-based links
@@ -154,7 +154,7 @@ class WangyiScraper(BaseScraper):
                             "category": "culture",
                             "published_at": datetime.now(),
                         })
-                    except Exception as e:
+                    except Exception:
                         continue
 
                 await browser.close()

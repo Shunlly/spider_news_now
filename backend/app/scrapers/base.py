@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from playwright.async_api import async_playwright, Page, Browser
+from playwright.async_api import async_playwright
 
 from app.core.logging import get_logger
 
@@ -302,7 +302,7 @@ class BaseScraper(ABC):
 
                         # Upload to MinIO/RustFS
                         try:
-                            content_url = await storage_service.upload(
+                            await storage_service.upload(
                                 file_path,
                                 content.encode('utf-8'),
                                 content_type="text/html; charset=utf-8"
@@ -489,7 +489,7 @@ class BaseScraper(ABC):
             Cleaned HTML content with absolute image URLs
         """
         import re
-        from urllib.parse import urljoin, urlparse
+        from urllib.parse import urljoin
 
         # Remove script and style tags
         content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)

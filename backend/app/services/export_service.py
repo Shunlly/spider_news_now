@@ -6,7 +6,6 @@ Data Export Service
 支持异步后台导出大数据量。
 """
 
-import asyncio
 import csv
 import io
 import json
@@ -366,7 +365,7 @@ class ExportService:
     ) -> bytes:
         """导出为 Excel 格式"""
         try:
-            import openpyxl
+            import openpyxl  # noqa: F401  检查库是否可用
             from openpyxl import Workbook
         except ImportError:
             raise ImportError("需要安装 openpyxl 库才能导出 Excel 格式")

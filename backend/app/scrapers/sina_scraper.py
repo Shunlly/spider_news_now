@@ -1,11 +1,10 @@
 """Sina News scraper - refactored for async with BaseScraper."""
 
 import asyncio
-import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from playwright.async_api import async_playwright, Page
+from playwright.async_api import async_playwright
 
 from app.scrapers.base import BaseScraper
 

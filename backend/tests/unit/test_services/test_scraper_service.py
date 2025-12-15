@@ -1,7 +1,6 @@
 """Unit tests for scraper orchestration service."""
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.services.scraper_service import ScraperService
 from app.models.news_source import NewsSource

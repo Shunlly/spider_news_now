@@ -6,7 +6,7 @@ Tests the full export process including task creation, execution, and download.
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 

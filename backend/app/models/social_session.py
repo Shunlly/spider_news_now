@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
-    ForeignKey,
     Index,
     Integer,
     String,

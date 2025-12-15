@@ -6,7 +6,6 @@ Twitter Scraper Implementation
 支持增量采集和媒体下载。
 """
 
-import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 

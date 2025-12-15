@@ -22,7 +22,6 @@ from app.schemas.search import (
     IndexStatsResponse,
     IndexTaskResponse,
     SearchHitResponse,
-    SearchRequest,
     SearchResponse,
 )
 from app.services.search_service import SearchService, get_search_service

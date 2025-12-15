@@ -1,7 +1,6 @@
 """QQ News scraper - refactored for async with BaseScraper."""
 
 import asyncio
-import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 

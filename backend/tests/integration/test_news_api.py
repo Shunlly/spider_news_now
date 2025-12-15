@@ -2,7 +2,6 @@
 
 import pytest
 from httpx import AsyncClient
-from datetime import datetime
 
 from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource

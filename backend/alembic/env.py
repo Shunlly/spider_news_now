@@ -19,8 +19,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Get database URL from environment if available
-import os
-from app.core.config import settings
+from app.core.config import settings  # noqa: E402
 
 config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
 

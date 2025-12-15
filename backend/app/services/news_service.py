@@ -156,7 +156,7 @@ class NewsService:
                 })
 
         logger.info(
-            f"Retrieved articles grouped by source",
+            "Retrieved articles grouped by source",
             extra={
                 "source_count": len(groups),
                 "category": category,

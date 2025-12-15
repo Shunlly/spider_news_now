@@ -2,7 +2,7 @@
 
 import importlib
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,7 +128,7 @@ class ScraperService:
             articles = await scraper.run()
 
             logger.info(
-                f"Scraper completed",
+                "Scraper completed",
                 extra={"source_key": source_key, "article_count": len(articles)},
             )
 
@@ -232,7 +232,7 @@ class ScraperService:
             await db.commit()
 
             logger.info(
-                f"Scraper run completed successfully",
+                "Scraper run completed successfully",
                 extra={
                     "source_key": source_key,
                     "run_id": scraper_run.id,
@@ -273,7 +273,7 @@ class ScraperService:
             await db.commit()
 
             logger.error(
-                f"Scraper run failed",
+                "Scraper run failed",
                 extra={
                     "source_key": source_key,
                     "run_id": scraper_run.id,

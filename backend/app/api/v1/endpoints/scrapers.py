@@ -1,6 +1,5 @@
 """Scraper management API endpoints."""
 
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, desc, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,7 +72,7 @@ async def trigger_scraper(
     import asyncio
     asyncio.create_task(trigger_scraper_now(source_key))
 
-    logger.info(f"Manual trigger initiated", extra={"source_key": source_key})
+    logger.info("Manual trigger initiated", extra={"source_key": source_key})
 
     from datetime import datetime
     return ScraperTriggerResponse(
@@ -168,7 +167,7 @@ async def get_scrapers_status(
             )
 
         # Calculate next run time (approximate - based on schedule interval)
-        from datetime import datetime, timedelta
+        from datetime import timedelta
         next_run_at = None
         if source.enabled and source.last_run_at:
             next_run_at = source.last_run_at + timedelta(seconds=source.schedule_interval)
@@ -254,7 +253,7 @@ async def create_scraper(
     await db.commit()
     await db.refresh(new_source)
 
-    logger.info(f"Created new source", extra={"source_key": source_data.source_key})
+    logger.info("Created new source", extra={"source_key": source_data.source_key})
 
     return NewsSourceResponse.model_validate(new_source)
 
@@ -307,7 +306,7 @@ async def enable_scraper(
     # Calculate next run time
     next_run = datetime.now() + timedelta(seconds=source.schedule_interval)
 
-    logger.info(f"Enabled scraper", extra={"source_key": source_key})
+    logger.info("Enabled scraper", extra={"source_key": source_key})
 
     return ScraperEnableResponse(
         message=f"Scraper '{source_key}' enabled successfully",
@@ -357,7 +356,7 @@ async def disable_scraper(
     )
     await db.commit()
 
-    logger.info(f"Disabled scraper", extra={"source_key": source_key})
+    logger.info("Disabled scraper", extra={"source_key": source_key})
 
     return ScraperEnableResponse(
         message=f"Scraper '{source_key}' disabled successfully",
@@ -406,7 +405,7 @@ async def update_scraper_config(
     await db.refresh(source)
 
     logger.info(
-        f"Updated scraper config",
+        "Updated scraper config",
         extra={"source_key": source_key, "schedule_interval": config.schedule_interval}
     )
 
@@ -446,7 +445,6 @@ async def get_scraper_runs(
         raise HTTPException(status_code=404, detail=f"Source '{source_key}' not found")
 
     # Get total count
-    from sqlalchemy import func
     count_stmt = select(func.count()).select_from(ScraperRun).where(
         ScraperRun.source_key == source_key
     )

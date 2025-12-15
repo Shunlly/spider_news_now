@@ -77,32 +77,33 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO - S3 兼容的对象存储
-  minio:
-    image: minio/minio:latest
-    container_name: news_scraper_minio
+  # RustFS - S3 兼容的高性能对象存储 (MinIO 替代)
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: news_scraper_rustfs
     restart: unless-stopped
+    user: "10001:10001"
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 512M
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin123}
     ports:
-      - "9010:9000"   # API 端口
+      - "9010:9000"   # S3 API 端口
       - "9011:9001"   # Console 端口
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     networks:
       - news_scraper_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "nc -z localhost 9000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-    command: server /data --console-address ":9001"
+      start_period: 10s
 
   backend:
     build:
@@ -122,7 +123,7 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     environment:
       # 数据库配置
@@ -133,11 +134,11 @@ services:
       # Meilisearch 配置
       MEILISEARCH_URL: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:-masterKey123}
-      # MinIO 配置
+      # RustFS 配置 (S3 兼容)
       STORAGE_BACKEND: minio
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ENDPOINT: rustfs:9000
+      MINIO_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      MINIO_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-news-scraper}
       MINIO_SECURE: "false"
       # API 配置
@@ -189,7 +190,7 @@ volumes:
     driver: local
   meilisearch_data:
     driver: local
-  minio_data:
+  rustfs_data:
     driver: local
 
 networks:

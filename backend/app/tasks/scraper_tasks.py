@@ -1,7 +1,6 @@
 """Scheduled scraper tasks."""
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.db.session import AsyncSessionLocal
@@ -21,7 +20,7 @@ async def run_scraper_job(source_key: str) -> None:
     Args:
         source_key: Source identifier to scrape
     """
-    logger.info(f"Starting scheduled scraper job", extra={"source_key": source_key})
+    logger.info("Starting scheduled scraper job", extra={"source_key": source_key})
 
     async with AsyncSessionLocal() as db:
         try:
@@ -29,18 +28,18 @@ async def run_scraper_job(source_key: str) -> None:
 
             if run_id:
                 logger.info(
-                    f"Scheduled scraper job completed successfully",
+                    "Scheduled scraper job completed successfully",
                     extra={"source_key": source_key, "run_id": run_id},
                 )
             else:
                 logger.error(
-                    f"Scheduled scraper job failed",
+                    "Scheduled scraper job failed",
                     extra={"source_key": source_key},
                 )
 
         except Exception as e:
             logger.error(
-                f"Scheduled scraper job exception",
+                "Scheduled scraper job exception",
                 extra={"source_key": source_key, "error": str(e)},
                 exc_info=True,
             )
@@ -54,7 +53,6 @@ async def register_scraper_jobs() -> None:
     Reads from database and creates APScheduler jobs for each enabled source.
     """
     from apscheduler.triggers.interval import IntervalTrigger
-    from datetime import timedelta
 
     async with AsyncSessionLocal() as db:
         # Get all enabled sources
@@ -76,7 +74,7 @@ async def register_scraper_jobs() -> None:
             )
 
             logger.info(
-                f"Registered scraper job",
+                "Registered scraper job",
                 extra={
                     "source_key": source.source_key,
                     "interval": source.schedule_interval,
@@ -108,7 +106,7 @@ async def add_scraper_job(source_key: str, interval_seconds: int) -> None:
     )
 
     logger.info(
-        f"Added/updated scraper job",
+        "Added/updated scraper job",
         extra={"source_key": source_key, "interval": interval_seconds},
     )
 
@@ -125,7 +123,7 @@ async def remove_scraper_job(source_key: str) -> None:
 
     await scheduler.remove_schedule(job_id)
 
-    logger.info(f"Removed scraper job", extra={"source_key": source_key})
+    logger.info("Removed scraper job", extra={"source_key": source_key})
 
 
 async def trigger_scraper_now(source_key: str) -> None:
@@ -135,7 +133,7 @@ async def trigger_scraper_now(source_key: str) -> None:
     Args:
         source_key: Source identifier
     """
-    logger.info(f"Manual trigger for scraper", extra={"source_key": source_key})
+    logger.info("Manual trigger for scraper", extra={"source_key": source_key})
 
     async with AsyncSessionLocal() as db:
         await ScraperService.run_scraper(db, source_key)

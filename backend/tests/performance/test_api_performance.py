@@ -10,8 +10,6 @@ SLA Requirements:
 
 import asyncio
 import time
-from datetime import datetime
-from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

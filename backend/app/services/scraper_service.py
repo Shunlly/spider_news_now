@@ -169,37 +169,42 @@ class ScraperService:
                 await db.commit()
                 logger.info(f"Updated {content_updated} existing articles with content")
 
-            # Step 5: Insert new articles
+            # Step 5: Insert new articles (逐个插入，跳过重复)
+            inserted_count = 0
             if new_articles:
-                article_models = [NewsArticle(**article) for article in new_articles]
-                db.add_all(article_models)
-                await db.commit()
+                for article_data in new_articles:
+                    try:
+                        article_model = NewsArticle(**article_data)
+                        db.add(article_model)
+                        await db.commit()
+                        await db.refresh(article_model)
+                        inserted_count += 1
 
-                # Step 5.5: Index new articles to Meilisearch
-                try:
-                    search_service = get_search_service()
-                    # Refresh to get IDs
-                    for model in article_models:
-                        await db.refresh(model)
+                        # Index to Meilisearch
+                        try:
+                            search_service = get_search_service()
+                            await search_service.index_documents([{
+                                "id": article_model.id,
+                                "title": article_model.title,
+                                "url": article_model.url,
+                                "source_key": article_model.source_key,
+                                "category": article_model.category,
+                                "content": article_model.content_text,
+                                "published_at": article_model.published_at,
+                                "created_at": article_model.created_at,
+                            }])
+                        except Exception as search_e:
+                            logger.warning(f"Failed to index article to Meilisearch: {search_e}")
 
-                    index_docs = []
-                    for model in article_models:
-                        index_docs.append({
-                            "id": model.id,
-                            "title": model.title,
-                            "url": model.url,
-                            "source_key": model.source_key,
-                            "category": model.category,
-                            "content": model.content_text,
-                            "published_at": model.published_at,
-                            "created_at": model.created_at,
-                        })
+                    except Exception as insert_e:
+                        await db.rollback()
+                        if "Duplicate entry" in str(insert_e):
+                            logger.debug(f"Skipping duplicate article: {article_data.get('title', 'Unknown')[:30]}")
+                        else:
+                            logger.warning(f"Failed to insert article: {insert_e}")
+                        continue
 
-                    if index_docs:
-                        await search_service.index_documents(index_docs)
-                        logger.info(f"Indexed {len(index_docs)} articles to Meilisearch")
-                except Exception as e:
-                    logger.warning(f"Failed to index articles to Meilisearch: {e}")
+                logger.info(f"Inserted {inserted_count} new articles")
 
             # Step 6: Update ScraperRun with statistics
             end_time = datetime.now()
@@ -212,7 +217,7 @@ class ScraperService:
                     completed_at=end_time,
                     status="success",
                     articles_scraped=len(articles),
-                    articles_new=len(new_articles),
+                    articles_new=inserted_count,
                     articles_duplicate=len(duplicate_articles),
                     duration_seconds=duration,
                 )
@@ -237,7 +242,7 @@ class ScraperService:
                     "source_key": source_key,
                     "run_id": scraper_run.id,
                     "articles_scraped": len(articles),
-                    "articles_new": len(new_articles),
+                    "articles_new": inserted_count,
                     "duration": duration,
                 },
             )
@@ -245,32 +250,39 @@ class ScraperService:
             return scraper_run.id
 
         except Exception as e:
+            # 确保回滚任何未完成的事务
+            await db.rollback()
+
             # Update ScraperRun with error
             end_time = datetime.now()
             duration = int((end_time - start_time).total_seconds())
 
-            await db.execute(
-                update(ScraperRun)
-                .where(ScraperRun.id == scraper_run.id)
-                .values(
-                    completed_at=end_time,
-                    status="failed",
-                    duration_seconds=duration,
-                    error_message=str(e),
+            try:
+                await db.execute(
+                    update(ScraperRun)
+                    .where(ScraperRun.id == scraper_run.id)
+                    .values(
+                        completed_at=end_time,
+                        status="failed",
+                        duration_seconds=duration,
+                        error_message=str(e)[:500],  # 限制错误信息长度
+                    )
                 )
-            )
-            await db.commit()
+                await db.commit()
 
-            # Update NewsSource status
-            await db.execute(
-                update(NewsSource)
-                .where(NewsSource.source_key == source_key)
-                .values(
-                    status="failed",
-                    failure_count=NewsSource.failure_count + 1,
+                # Update NewsSource status
+                await db.execute(
+                    update(NewsSource)
+                    .where(NewsSource.source_key == source_key)
+                    .values(
+                        status="failed",
+                        failure_count=NewsSource.failure_count + 1,
+                    )
                 )
-            )
-            await db.commit()
+                await db.commit()
+            except Exception as update_error:
+                logger.error(f"Failed to update scraper status: {update_error}")
+                await db.rollback()
 
             logger.error(
                 "Scraper run failed",

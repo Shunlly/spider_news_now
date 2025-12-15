@@ -84,3 +84,6 @@ mysql_data/
 # Temporary files
 *.tmp
 .temp/
+
+# Claude Code
+.claude/

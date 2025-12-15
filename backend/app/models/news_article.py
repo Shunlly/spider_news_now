@@ -66,6 +66,16 @@ class NewsArticle(Base):
         comment="内容 SimHash 指纹（用于相似内容检测）"
     )
 
+    # 正文解析状态：pending=待解析, parsing=解析中, completed=已完成, failed=失败
+    content_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", index=True,
+        comment="正文解析状态"
+    )
+    content_retry_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0,
+        comment="正文解析重试次数"
+    )
+
     # 来源和分类
     source_key: Mapped[str] = mapped_column(
         String(50), ForeignKey("news_sources.source_key"), nullable=False, index=True,

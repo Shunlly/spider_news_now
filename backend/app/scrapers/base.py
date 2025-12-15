@@ -21,8 +21,8 @@ class BaseScraper(ABC):
     This ensures consistent interface and behavior across all scrapers.
     """
 
-    # 是否启用正文提取（子类可覆盖）
-    FETCH_CONTENT_ENABLED = True
+    # 是否启用正文提取（默认关闭，由后台任务处理）
+    FETCH_CONTENT_ENABLED = False
     # 正文提取并发数
     CONTENT_FETCH_CONCURRENCY = 3
     # 正文提取超时（秒）

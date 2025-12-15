@@ -137,3 +137,83 @@ async def trigger_scraper_now(source_key: str) -> None:
 
     async with AsyncSessionLocal() as db:
         await ScraperService.run_scraper(db, source_key)
+
+
+# ============== 正文解析任务 ==============
+
+
+async def run_content_parser_job(batch_size: int = 20) -> None:
+    """
+    Job function to parse article content in background.
+
+    This is executed by APScheduler on schedule.
+
+    Args:
+        batch_size: Number of articles to process per batch
+    """
+    from app.services.content_parser_service import run_content_parser
+
+    logger.info("Starting content parser job", extra={"batch_size": batch_size})
+
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await run_content_parser(db, batch_size)
+
+            logger.info(
+                "Content parser job completed",
+                extra={
+                    "total": result["total"],
+                    "success": result["success"],
+                    "failed": result["failed"],
+                },
+            )
+
+        except Exception as e:
+            logger.error(
+                "Content parser job exception",
+                extra={"error": str(e)},
+                exc_info=True,
+            )
+
+
+async def register_content_parser_job(interval_seconds: int = 300) -> None:
+    """
+    Register content parser as a scheduled job.
+
+    Args:
+        interval_seconds: Parse interval in seconds (default 5 minutes)
+    """
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    scheduler = await get_scheduler()
+    job_id = "content_parser"
+
+    await scheduler.add_schedule(
+        run_content_parser_job,
+        IntervalTrigger(seconds=interval_seconds),
+        id=job_id,
+        args=[20],  # batch size
+    )
+
+    logger.info(
+        "Registered content parser job",
+        extra={"interval": interval_seconds, "job_id": job_id},
+    )
+
+
+async def trigger_content_parser_now(batch_size: int = 50) -> dict:
+    """
+    Manually trigger content parser to run immediately.
+
+    Args:
+        batch_size: Number of articles to process
+
+    Returns:
+        Processing result statistics
+    """
+    from app.services.content_parser_service import run_content_parser
+
+    logger.info("Manual trigger for content parser", extra={"batch_size": batch_size})
+
+    async with AsyncSessionLocal() as db:
+        return await run_content_parser(db, batch_size)

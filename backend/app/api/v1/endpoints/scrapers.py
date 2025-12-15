@@ -19,7 +19,7 @@ from app.schemas.scraper import (
     ScraperConfigUpdate,
     ScraperEnableResponse,
 )
-from app.tasks.scraper_tasks import trigger_scraper_now
+from app.tasks.scraper_tasks import trigger_scraper_now, trigger_content_parser_now
 
 logger = get_logger(__name__)
 
@@ -469,3 +469,75 @@ async def get_scraper_runs(
         page=page,
         page_size=page_size,
     )
+
+
+# ============== 正文解析接口 ==============
+
+
+@router.post("/content-parser/trigger", status_code=202)
+async def trigger_content_parser(
+    batch_size: int = Query(50, ge=1, le=200, description="Number of articles to process"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    手动触发正文解析任务。
+
+    用于后台异步解析文章正文内容。
+
+    Args:
+        batch_size: 每批处理的文章数量 (默认 50, 最大 200)
+
+    Returns:
+        202 Accepted with task status
+    """
+    import asyncio
+
+    # 异步执行，不阻塞
+    asyncio.create_task(trigger_content_parser_now(batch_size))
+
+    logger.info("Content parser triggered", extra={"batch_size": batch_size})
+
+    return {
+        "message": "Content parser triggered successfully",
+        "batch_size": batch_size,
+        "status": "queued",
+    }
+
+
+@router.get("/content-parser/status")
+async def get_content_parser_status(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取正文解析状态统计。
+
+    返回待解析、解析中、已完成、失败的文章数量。
+
+    Returns:
+        各状态的文章数量统计
+    """
+    from app.models.news_article import NewsArticle
+
+    # 统计各状态数量
+    stats = {}
+    for status in ["pending", "parsing", "completed", "failed"]:
+        count_stmt = select(func.count()).select_from(NewsArticle).where(
+            NewsArticle.content_status == status
+        )
+        result = await db.execute(count_stmt)
+        stats[status] = result.scalar()
+
+    # 统计超过重试次数的文章
+    from app.services.content_parser_service import MAX_RETRY_COUNT
+    max_retry_stmt = select(func.count()).select_from(NewsArticle).where(
+        NewsArticle.content_status == "failed",
+        NewsArticle.content_retry_count >= MAX_RETRY_COUNT,
+    )
+    max_retry_result = await db.execute(max_retry_stmt)
+    stats["permanently_failed"] = max_retry_result.scalar()
+
+    return {
+        "status": stats,
+        "total_pending": stats["pending"] + stats.get("failed", 0) - stats.get("permanently_failed", 0),
+        "message": "Content parser status retrieved successfully",
+    }

@@ -119,6 +119,10 @@ class IfengScraper(BaseScraper):
                                     if not article_url or not title:
                                         continue
 
+                                    # 修复协议相对URL（以//开头）
+                                    if article_url.startswith("//"):
+                                        article_url = "https:" + article_url
+
                                     if article_url in seen_urls:
                                         continue
                                     seen_urls.add(article_url)
@@ -152,6 +156,10 @@ class IfengScraper(BaseScraper):
                             href = await item.get_attribute("href")
                             if not href or href in seen_urls:
                                 continue
+
+                            # 修复协议相对URL（以//开头）
+                            if href.startswith("//"):
+                                href = "https:" + href
 
                             title = await item.inner_text()
                             if not title or not title.strip() or len(title.strip()) < 5:

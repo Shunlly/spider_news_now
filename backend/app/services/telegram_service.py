@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Any
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
-from telethon.tl.functions.contacts import ResolveUsernameRequest
+from telethon.tl.functions.contacts import ResolveUsernameRequest, SearchRequest
 from telethon.tl.types import (
     Channel, Chat, User,
     Message, MessageMediaPhoto, MessageMediaDocument,
@@ -398,6 +398,62 @@ class TelegramService:
         except Exception as e:
             logger.error(f"Search channel failed: {e}")
             return {"success": False, "message": str(e)}
+
+    async def search_public(self, query: str, limit: int = 20) -> Dict[str, Any]:
+        """
+        通过关键词搜索公开频道/群组
+
+        Args:
+            query: 搜索关键词（支持中文）
+            limit: 返回数量限制
+
+        Returns:
+            {"success": bool, "entities": list, "message": str}
+        """
+        if not self.client or not self._connected:
+            return {"success": False, "message": "Not connected", "entities": []}
+
+        try:
+            query = query.strip()
+            if not query:
+                return {"success": False, "message": "请输入搜索关键词", "entities": []}
+
+            # 使用 contacts.SearchRequest 搜索
+            result = await self.client(SearchRequest(q=query, limit=limit))
+
+            entities = []
+
+            # 处理搜索结果中的频道/群组
+            for chat in result.chats:
+                if isinstance(chat, Channel):
+                    entity_type = "group" if chat.megagroup else "channel"
+                    entities.append({
+                        "id": chat.id,
+                        "title": chat.title,
+                        "username": getattr(chat, "username", None),
+                        "type": entity_type,
+                        "participant_count": getattr(chat, "participants_count", None),
+                        "description": getattr(chat, "about", None),
+                    })
+                elif isinstance(chat, Chat):
+                    entities.append({
+                        "id": chat.id,
+                        "title": chat.title,
+                        "username": None,
+                        "type": "group",
+                        "participant_count": getattr(chat, "participants_count", None),
+                        "description": None,
+                    })
+
+            return {
+                "success": True,
+                "entities": entities,
+                "message": f"找到 {len(entities)} 个结果",
+            }
+
+        except Exception as e:
+            logger.error(f"Search public failed: {e}")
+            return {"success": False, "message": str(e), "entities": []}
 
     async def join_channel(self, channel: str) -> Dict[str, Any]:
         """

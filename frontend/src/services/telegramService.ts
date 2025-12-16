@@ -79,6 +79,10 @@ export interface TelegramSearchResponse extends TelegramBaseResponse {
   entity?: TelegramEntity
 }
 
+export interface TelegramSearchPublicResponse extends TelegramBaseResponse {
+  entities: TelegramEntity[]
+}
+
 export interface TelegramMessagesResponse extends TelegramBaseResponse {
   messages: TelegramMessage[]
   total: number
@@ -144,9 +148,14 @@ export const telegramService = {
     return apiClient.get('/telegram/dialogs', { params })
   },
 
-  // 搜索频道
+  // 搜索频道（精确匹配用户名）
   async searchChannel(username: string): Promise<TelegramSearchResponse> {
     return apiClient.post('/telegram/search', { username })
+  },
+
+  // 关键词搜索频道（支持中文）
+  async searchPublic(query: string, limit: number = 20): Promise<TelegramSearchPublicResponse> {
+    return apiClient.post('/telegram/search-public', { query, limit })
   },
 
   // 加入频道

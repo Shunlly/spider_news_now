@@ -26,6 +26,8 @@ from app.schemas.telegram import (
     TelegramDialogResponse,
     TelegramSearchRequest,
     TelegramSearchResponse,
+    TelegramSearchPublicRequest,
+    TelegramSearchPublicResponse,
     TelegramEntityResponse,
     TelegramJoinRequest,
     TelegramLeaveRequest,
@@ -245,6 +247,31 @@ async def search_channel(request: TelegramSearchRequest):
         success=result.get("success", False),
         message=result.get("message", ""),
         entity=entity,
+    )
+
+
+@router.post("/search-public", response_model=TelegramSearchPublicResponse)
+async def search_public(request: TelegramSearchPublicRequest):
+    """
+    关键词搜索频道
+
+    通过关键词搜索公开频道/群组，支持中文。
+    """
+    service = get_telegram_service()
+
+    if not service.is_connected:
+        raise HTTPException(status_code=400, detail="未连接，请先登录")
+
+    result = await service.search_public(request.query, request.limit)
+
+    entities = []
+    for e in result.get("entities", []):
+        entities.append(TelegramEntityResponse(**e))
+
+    return TelegramSearchPublicResponse(
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        entities=entities,
     )
 
 

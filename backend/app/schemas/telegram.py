@@ -75,6 +75,12 @@ class TelegramSearchRequest(BaseModel):
     username: str = Field(..., description="用户名或链接（不带@）")
 
 
+class TelegramSearchPublicRequest(BaseModel):
+    """关键词搜索请求"""
+    query: str = Field(..., description="搜索关键词（支持中文）")
+    limit: int = Field(20, ge=1, le=50, description="返回数量限制")
+
+
 class TelegramJoinRequest(BaseModel):
     """加入频道请求"""
     channel: str = Field(..., description="频道用户名或链接")
@@ -162,6 +168,11 @@ class TelegramDialogsResponse(TelegramBaseResponse):
 class TelegramSearchResponse(TelegramBaseResponse):
     """搜索响应"""
     entity: Optional[TelegramEntityResponse] = Field(None, description="找到的实体")
+
+
+class TelegramSearchPublicResponse(TelegramBaseResponse):
+    """关键词搜索响应"""
+    entities: List[TelegramEntityResponse] = Field(default_factory=list, description="搜索结果列表")
 
 
 class TelegramMessagesResponse(TelegramBaseResponse):

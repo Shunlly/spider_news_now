@@ -18,6 +18,7 @@ import {
   IconSettings,
   IconEye,
   IconLink,
+  IconSearch,
 } from '@arco-design/web-react/icon'
 import telegramService, {
   type TelegramDialog,
@@ -53,7 +54,7 @@ export default function TelegramPage() {
 
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResult, setSearchResult] = useState<TelegramEntity | null>(null)
+  const [searchResults, setSearchResults] = useState<TelegramEntity[]>([])
   const [searching, setSearching] = useState(false)
 
   // 消息状态
@@ -266,65 +267,85 @@ export default function TelegramPage() {
     }
   }, [authStep, fetchDialogs])
 
-  // 添加频道（搜索 + 自动加入）
-  const handleAddChannel = async () => {
+  // 搜索频道（支持关键词和用户名）
+  const handleSearch = async () => {
     if (!searchQuery.trim()) return
 
     setSearching(true)
-    setSearchResult(null)
+    setSearchResults([])
     setError('')
 
     try {
-      // 1. 先搜索频道
-      const response = await telegramService.searchChannel(searchQuery.trim())
-      if (!response.success || !response.entity) {
-        setError(response.message || '未找到该频道')
-        return
-      }
+      const query = searchQuery.trim()
 
-      const entity = response.entity
+      // 判断是否为用户名格式（以@开头或包含t.me/）
+      const isUsername = query.startsWith('@') || query.includes('t.me/') || /^[a-zA-Z][a-zA-Z0-9_]{3,30}$/.test(query)
 
-      // 2. 检查是否已加入
-      const alreadyJoined = dialogs.some(
-        d => d.id === entity.id ||
-             (d.username && entity.username && d.username.toLowerCase() === entity.username.toLowerCase())
-      )
-
-      if (alreadyJoined) {
-        setSearchResult({ ...entity, _alreadyJoined: true } as any)
-        return
-      }
-
-      // 3. 未加入则自动加入
-      setSearchResult(entity)
-      const joinResponse = await telegramService.joinChannel(entity.username || String(entity.id))
-      if (joinResponse.success) {
-        setSearchResult({ ...entity, _justJoined: true } as any)
-        fetchDialogs()
-        // 3秒后清除结果
-        setTimeout(() => {
-          setSearchResult(null)
-          setSearchQuery('')
-        }, 3000)
+      if (isUsername) {
+        // 精确匹配用户名
+        const response = await telegramService.searchChannel(query)
+        if (response.success && response.entity) {
+          // 标记是否已加入
+          const entity = response.entity
+          const alreadyJoined = dialogs.some(
+            d => d.id === entity.id ||
+                 (d.username && entity.username && d.username.toLowerCase() === entity.username.toLowerCase())
+          )
+          setSearchResults([{ ...entity, _alreadyJoined: alreadyJoined } as any])
+        } else {
+          // 用户名搜索失败，尝试关键词搜索
+          const publicResponse = await telegramService.searchPublic(query)
+          if (publicResponse.success && publicResponse.entities.length > 0) {
+            // 标记已加入的频道
+            const results = publicResponse.entities.map(entity => {
+              const alreadyJoined = dialogs.some(
+                d => d.id === entity.id ||
+                     (d.username && entity.username && d.username.toLowerCase() === entity.username.toLowerCase())
+              )
+              return { ...entity, _alreadyJoined: alreadyJoined }
+            })
+            setSearchResults(results as any)
+          } else {
+            setError('未找到相关频道')
+          }
+        }
       } else {
-        setError(joinResponse.message)
+        // 关键词搜索（支持中文）
+        const response = await telegramService.searchPublic(query)
+        if (response.success && response.entities.length > 0) {
+          // 标记已加入的频道
+          const results = response.entities.map(entity => {
+            const alreadyJoined = dialogs.some(
+              d => d.id === entity.id ||
+                   (d.username && entity.username && d.username.toLowerCase() === entity.username.toLowerCase())
+            )
+            return { ...entity, _alreadyJoined: alreadyJoined }
+          })
+          setSearchResults(results as any)
+        } else {
+          setError(response.message || '未找到相关频道')
+        }
       }
     } catch (e: any) {
-      setError(e.message || '添加失败')
+      setError(e.message || '搜索失败')
     } finally {
       setSearching(false)
     }
   }
 
-  // 手动加入频道（从搜索结果）
-  const handleJoin = async (channel: string) => {
+  // 加入频道（从搜索结果）
+  const handleJoinFromResult = async (entity: TelegramEntity) => {
     setLoading(true)
+    setError('')
     try {
+      const channel = entity.username || String(entity.id)
       const response = await telegramService.joinChannel(channel)
       if (response.success) {
+        // 更新结果列表中的状态
+        setSearchResults(prev => prev.map(e =>
+          e.id === entity.id ? { ...e, _alreadyJoined: true, _justJoined: true } as any : e
+        ))
         fetchDialogs()
-        setSearchResult(null)
-        setSearchQuery('')
       } else {
         setError(response.message)
       }
@@ -546,62 +567,72 @@ export default function TelegramPage() {
           </div>
         </GlassCard>
 
-        {/* 添加频道 */}
+        {/* 搜索频道 */}
         <GlassCard className="p-4">
-          <h3 className="text-white font-medium mb-3">添加频道</h3>
+          <h3 className="text-white font-medium mb-3">搜索并添加频道</h3>
           <div className="flex gap-2">
             <GlassInput
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="输入频道用户名或链接，如 @telegram 或 t.me/telegram"
-              onKeyDown={(e) => e.key === 'Enter' && handleAddChannel()}
+              placeholder="输入关键词（如 香港、财经）或用户名（如 @telegram）"
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="flex-1"
             />
             <GlassButton
-              icon={<IconPlus />}
-              onClick={handleAddChannel}
+              icon={<IconSearch />}
+              onClick={handleSearch}
               loading={searching}
               variant="primary"
             >
-              添加
+              搜索
             </GlassButton>
           </div>
 
-          {/* 添加结果 */}
-          {searchResult && (
-            <div className={`mt-4 p-3 rounded-lg flex items-center justify-between ${
-              (searchResult as any)._alreadyJoined ? 'bg-yellow-500/10 border border-yellow-500/30' :
-              (searchResult as any)._justJoined ? 'bg-green-500/10 border border-green-500/30' :
-              'bg-white/5'
-            }`}>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium">{searchResult.title}</span>
-                  {(searchResult as any)._alreadyJoined && (
-                    <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">已加入</span>
-                  )}
-                  {(searchResult as any)._justJoined && (
-                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">加入成功</span>
-                  )}
-                </div>
-                <div className="text-sm text-white/50">
-                  @{searchResult.username} · {searchResult.type} · {searchResult.participant_count?.toLocaleString()} 成员
-                </div>
-                {searchResult.description && (
-                  <p className="text-sm text-white/40 mt-1 line-clamp-2">{searchResult.description}</p>
-                )}
-              </div>
-              {!(searchResult as any)._alreadyJoined && !(searchResult as any)._justJoined && (
-                <GlassButton
-                  size="sm"
-                  variant="primary"
-                  icon={<IconPlus />}
-                  onClick={() => handleJoin(searchResult.username || String(searchResult.id))}
-                  loading={loading}
+          {/* 搜索结果列表 */}
+          {searchResults.length > 0 && (
+            <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+              <div className="text-sm text-white/50 mb-2">找到 {searchResults.length} 个结果：</div>
+              {searchResults.map((entity) => (
+                <div
+                  key={entity.id}
+                  className={`p-3 rounded-lg flex items-center justify-between ${
+                    (entity as any)._justJoined ? 'bg-green-500/10 border border-green-500/30' :
+                    (entity as any)._alreadyJoined ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                    'bg-white/5 hover:bg-white/10'
+                  }`}
                 >
-                  加入
-                </GlassButton>
-              )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium truncate">{entity.title}</span>
+                      {(entity as any)._justJoined && (
+                        <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded flex-shrink-0">加入成功</span>
+                      )}
+                      {(entity as any)._alreadyJoined && !(entity as any)._justJoined && (
+                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded flex-shrink-0">已加入</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-white/50 truncate">
+                      {entity.username ? `@${entity.username}` : ''} · {entity.type === 'channel' ? '频道' : entity.type === 'group' ? '群组' : entity.type}
+                      {entity.participant_count && ` · ${entity.participant_count.toLocaleString()} 成员`}
+                    </div>
+                    {entity.description && (
+                      <p className="text-sm text-white/40 mt-1 line-clamp-1">{entity.description}</p>
+                    )}
+                  </div>
+                  {!(entity as any)._alreadyJoined && (
+                    <GlassButton
+                      size="sm"
+                      variant="primary"
+                      icon={<IconPlus />}
+                      onClick={() => handleJoinFromResult(entity)}
+                      loading={loading}
+                      className="ml-2 flex-shrink-0"
+                    >
+                      加入
+                    </GlassButton>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </GlassCard>

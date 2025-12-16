@@ -337,9 +337,28 @@ class TelegramService:
 
         try:
             # 清理用户名
-            username = username.lstrip("@").strip()
-            if username.startswith("https://t.me/"):
-                username = username.replace("https://t.me/", "")
+            username = username.strip()
+
+            # 处理各种链接格式
+            # https://t.me/username, http://t.me/username, t.me/username
+            if "t.me/" in username:
+                username = username.split("t.me/")[-1]
+
+            # 移除 @ 符号
+            username = username.lstrip("@")
+
+            # 移除可能的路径参数（如 username/123）
+            if "/" in username:
+                username = username.split("/")[0]
+
+            # 移除查询参数
+            if "?" in username:
+                username = username.split("?")[0]
+
+            username = username.strip()
+
+            if not username:
+                return {"success": False, "message": "请输入有效的用户名"}
 
             # 尝试解析用户名
             result = await self.client(ResolveUsernameRequest(username))
@@ -394,10 +413,28 @@ class TelegramService:
             return {"success": False, "message": "Not connected"}
 
         try:
-            # 解析频道
-            channel = channel.lstrip("@").strip()
+            # 清理频道名
+            channel = channel.strip()
+
+            # 处理各种链接格式
             if "t.me/" in channel:
                 channel = channel.split("t.me/")[-1]
+
+            # 移除 @ 符号
+            channel = channel.lstrip("@")
+
+            # 移除可能的路径参数
+            if "/" in channel:
+                channel = channel.split("/")[0]
+
+            # 移除查询参数
+            if "?" in channel:
+                channel = channel.split("?")[0]
+
+            channel = channel.strip()
+
+            if not channel:
+                return {"success": False, "message": "请输入有效的频道名"}
 
             entity = await self.client.get_entity(channel)
             await self.client(JoinChannelRequest(entity))

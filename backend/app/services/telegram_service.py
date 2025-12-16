@@ -414,41 +414,87 @@ class TelegramService:
             return {"success": False, "message": "Not connected", "entities": []}
 
         try:
-            query = query.strip()
+            query = query.strip().lower()
             if not query:
                 return {"success": False, "message": "请输入搜索关键词", "entities": []}
 
-            # 使用 contacts.SearchRequest 搜索
-            result = await self.client(SearchRequest(q=query, limit=limit))
-
             entities = []
+            seen_ids = set()
 
-            # 处理搜索结果中的频道/群组
-            for chat in result.chats:
-                if isinstance(chat, Channel):
-                    entity_type = "group" if chat.megagroup else "channel"
-                    entities.append({
-                        "id": chat.id,
-                        "title": chat.title,
-                        "username": getattr(chat, "username", None),
-                        "type": entity_type,
-                        "participant_count": getattr(chat, "participants_count", None),
-                        "description": getattr(chat, "about", None),
-                    })
-                elif isinstance(chat, Chat):
-                    entities.append({
-                        "id": chat.id,
-                        "title": chat.title,
-                        "username": None,
-                        "type": "group",
-                        "participant_count": getattr(chat, "participants_count", None),
-                        "description": None,
-                    })
+            # 1. 首先从已加入的对话中搜索（支持中文）
+            try:
+                async for dialog in self.client.iter_dialogs(limit=200):
+                    entity = dialog.entity
+                    if isinstance(entity, (Channel, Chat)):
+                        title = (dialog.title or "").lower()
+                        username = (getattr(entity, "username", "") or "").lower()
+
+                        # 匹配标题或用户名
+                        if query in title or query in username:
+                            if entity.id not in seen_ids:
+                                seen_ids.add(entity.id)
+                                if isinstance(entity, Channel):
+                                    entity_type = "group" if entity.megagroup else "channel"
+                                else:
+                                    entity_type = "group"
+
+                                entities.append({
+                                    "id": entity.id,
+                                    "title": dialog.title,
+                                    "username": getattr(entity, "username", None),
+                                    "type": entity_type,
+                                    "participant_count": getattr(entity, "participants_count", None),
+                                    "description": getattr(entity, "about", None),
+                                    "_from_dialogs": True,  # 标记来源
+                                })
+
+                    if len(entities) >= limit:
+                        break
+            except Exception as e:
+                logger.warning(f"Search in dialogs failed: {e}")
+
+            # 2. 如果结果不够，使用 contacts.SearchRequest 搜索公开频道
+            if len(entities) < limit:
+                try:
+                    result = await self.client(SearchRequest(q=query, limit=limit - len(entities)))
+
+                    for chat in result.chats:
+                        if chat.id in seen_ids:
+                            continue
+                        seen_ids.add(chat.id)
+
+                        if isinstance(chat, Channel):
+                            entity_type = "group" if chat.megagroup else "channel"
+                            entities.append({
+                                "id": chat.id,
+                                "title": chat.title,
+                                "username": getattr(chat, "username", None),
+                                "type": entity_type,
+                                "participant_count": getattr(chat, "participants_count", None),
+                                "description": getattr(chat, "about", None),
+                            })
+                        elif isinstance(chat, Chat):
+                            entities.append({
+                                "id": chat.id,
+                                "title": chat.title,
+                                "username": None,
+                                "type": "group",
+                                "participant_count": getattr(chat, "participants_count", None),
+                                "description": None,
+                            })
+                except Exception as e:
+                    logger.warning(f"Public search failed: {e}")
+
+            # 构建消息
+            if entities:
+                message = f"找到 {len(entities)} 个结果"
+            else:
+                message = "未找到相关频道。提示：可以直接输入频道用户名（如 @channel）或链接（t.me/channel）添加"
 
             return {
                 "success": True,
                 "entities": entities,
-                "message": f"找到 {len(entities)} 个结果",
+                "message": message,
             }
 
         except Exception as e:

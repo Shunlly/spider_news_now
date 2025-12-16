@@ -635,6 +635,23 @@ export default function TelegramPage() {
               ))}
             </div>
           )}
+
+          {/* 推荐频道（搜索无结果时显示） */}
+          {searchResults.length === 0 && searchQuery && !searching && (
+            <div className="mt-4 p-4 bg-white/5 rounded-lg">
+              <div className="text-sm text-white/60 mb-3">
+                未找到相关频道？试试直接输入频道用户名添加：
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs text-white/40">
+                  示例格式：<code className="bg-black/30 px-1 rounded">@channelname</code> 或 <code className="bg-black/30 px-1 rounded">t.me/channelname</code>
+                </div>
+                <div className="text-xs text-white/40">
+                  可以在 Telegram 应用中找到频道，复制用户名或分享链接粘贴到搜索框
+                </div>
+              </div>
+            </div>
+          )}
         </GlassCard>
 
         {/* 频道列表和消息 */}

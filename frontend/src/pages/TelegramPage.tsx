@@ -8,7 +8,6 @@ import { GlassCard, GlassButton, GlassInput } from '@/components/glass'
 import {
   IconSend,
   IconRefresh,
-  IconSearch,
   IconPlus,
   IconDelete,
   IconMessage,
@@ -267,28 +266,57 @@ export default function TelegramPage() {
     }
   }, [authStep, fetchDialogs])
 
-  // 搜索频道
-  const handleSearch = async () => {
+  // 添加频道（搜索 + 自动加入）
+  const handleAddChannel = async () => {
     if (!searchQuery.trim()) return
 
     setSearching(true)
     setSearchResult(null)
+    setError('')
 
     try {
+      // 1. 先搜索频道
       const response = await telegramService.searchChannel(searchQuery.trim())
-      if (response.success && response.entity) {
-        setSearchResult(response.entity)
+      if (!response.success || !response.entity) {
+        setError(response.message || '未找到该频道')
+        return
+      }
+
+      const entity = response.entity
+
+      // 2. 检查是否已加入
+      const alreadyJoined = dialogs.some(
+        d => d.id === entity.id ||
+             (d.username && entity.username && d.username.toLowerCase() === entity.username.toLowerCase())
+      )
+
+      if (alreadyJoined) {
+        setSearchResult({ ...entity, _alreadyJoined: true } as any)
+        return
+      }
+
+      // 3. 未加入则自动加入
+      setSearchResult(entity)
+      const joinResponse = await telegramService.joinChannel(entity.username || String(entity.id))
+      if (joinResponse.success) {
+        setSearchResult({ ...entity, _justJoined: true } as any)
+        fetchDialogs()
+        // 3秒后清除结果
+        setTimeout(() => {
+          setSearchResult(null)
+          setSearchQuery('')
+        }, 3000)
       } else {
-        setError(response.message)
+        setError(joinResponse.message)
       }
     } catch (e: any) {
-      setError(e.message || '搜索失败')
+      setError(e.message || '添加失败')
     } finally {
       setSearching(false)
     }
   }
 
-  // 加入频道
+  // 手动加入频道（从搜索结果）
   const handleJoin = async (channel: string) => {
     setLoading(true)
     try {
@@ -518,31 +546,44 @@ export default function TelegramPage() {
           </div>
         </GlassCard>
 
-        {/* 搜索频道 */}
+        {/* 添加频道 */}
         <GlassCard className="p-4">
-          <h3 className="text-white font-medium mb-3">搜索频道</h3>
+          <h3 className="text-white font-medium mb-3">添加频道</h3>
           <div className="flex gap-2">
             <GlassInput
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="输入频道用户名或链接..."
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="输入频道用户名或链接，如 @telegram 或 t.me/telegram"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddChannel()}
               className="flex-1"
             />
             <GlassButton
-              icon={<IconSearch />}
-              onClick={handleSearch}
+              icon={<IconPlus />}
+              onClick={handleAddChannel}
               loading={searching}
+              variant="primary"
             >
-              搜索
+              添加
             </GlassButton>
           </div>
 
-          {/* 搜索结果 */}
+          {/* 添加结果 */}
           {searchResult && (
-            <div className="mt-4 p-3 bg-white/5 rounded-lg flex items-center justify-between">
+            <div className={`mt-4 p-3 rounded-lg flex items-center justify-between ${
+              (searchResult as any)._alreadyJoined ? 'bg-yellow-500/10 border border-yellow-500/30' :
+              (searchResult as any)._justJoined ? 'bg-green-500/10 border border-green-500/30' :
+              'bg-white/5'
+            }`}>
               <div>
-                <div className="text-white font-medium">{searchResult.title}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium">{searchResult.title}</span>
+                  {(searchResult as any)._alreadyJoined && (
+                    <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">已加入</span>
+                  )}
+                  {(searchResult as any)._justJoined && (
+                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">加入成功</span>
+                  )}
+                </div>
                 <div className="text-sm text-white/50">
                   @{searchResult.username} · {searchResult.type} · {searchResult.participant_count?.toLocaleString()} 成员
                 </div>
@@ -550,15 +591,17 @@ export default function TelegramPage() {
                   <p className="text-sm text-white/40 mt-1 line-clamp-2">{searchResult.description}</p>
                 )}
               </div>
-              <GlassButton
-                size="sm"
-                variant="primary"
-                icon={<IconPlus />}
-                onClick={() => handleJoin(searchResult.username || String(searchResult.id))}
-                loading={loading}
-              >
-                加入
-              </GlassButton>
+              {!(searchResult as any)._alreadyJoined && !(searchResult as any)._justJoined && (
+                <GlassButton
+                  size="sm"
+                  variant="primary"
+                  icon={<IconPlus />}
+                  onClick={() => handleJoin(searchResult.username || String(searchResult.id))}
+                  loading={loading}
+                >
+                  加入
+                </GlassButton>
+              )}
             </div>
           )}
         </GlassCard>

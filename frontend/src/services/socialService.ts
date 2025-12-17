@@ -72,6 +72,22 @@ export interface SocialStatistics {
   }>
 }
 
+export interface SubscriptionResponse {
+  success: boolean
+  message?: string
+  subscription?: SocialSession
+}
+
+export interface FetchAllResponse {
+  success: boolean
+  message?: string
+  results?: Array<{
+    session_id: number
+    new_count: number
+    status: string
+  }>
+}
+
 export const socialService = {
   // 获取会话列表
   async getSessions(params?: {
@@ -145,6 +161,50 @@ export const socialService = {
   // 获取统计数据
   async getStatistics(): Promise<SocialStatistics> {
     return apiClient.get('/social/statistics')
+  },
+
+  // 订阅 Twitter 用户
+  async subscribeTwitterUser(data: {
+    user_id: string
+    screen_name: string
+    name: string
+    description?: string
+    fetch_interval?: number
+  }): Promise<SubscriptionResponse> {
+    return apiClient.post('/social/subscribe/twitter', null, { params: data })
+  },
+
+  // 订阅 Telegram 频道
+  async subscribeTelegramChannel(data: {
+    channel_id: number
+    title: string
+    username?: string
+    target_type?: string
+    description?: string
+    fetch_interval?: number
+  }): Promise<SubscriptionResponse> {
+    return apiClient.post('/social/subscribe/telegram', null, { params: data })
+  },
+
+  // 手动采集单个订阅
+  async fetchSession(sessionId: number): Promise<{ success: boolean; message?: string; new_count?: number }> {
+    return apiClient.post(`/social/sessions/${sessionId}/fetch`)
+  },
+
+  // 手动采集所有活跃订阅
+  async fetchAllActive(): Promise<FetchAllResponse> {
+    return apiClient.post('/social/fetch-all')
+  },
+
+  // 搜索所有消息
+  async searchMessages(params?: {
+    platform?: Platform
+    keyword?: string
+    subscription_id?: number
+    page?: number
+    page_size?: number
+  }): Promise<MessageListResponse> {
+    return apiClient.get('/social/messages', { params })
   },
 }
 

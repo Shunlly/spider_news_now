@@ -5,26 +5,37 @@ Proxy Configuration Model - Proxy Pool Management
 遵循宪法 II.C 代理池要求：
 - 支持多代理轮换
 - 健康检查和故障转移
+- 数据隔离：通过 user_id 关联到创建者
 """
 
+import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SQLEnum,
     Float,
+    ForeignKey,
     Index,
     Integer,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class ProxyProtocol(str, Enum):
@@ -49,12 +60,26 @@ class ProxyConfig(Base):
 
     管理代理池中的代理节点。
     支持健康检查、权重分配和自动故障转移。
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "proxy_configs"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # 代理标识
     name: Mapped[str] = mapped_column(
@@ -165,10 +190,13 @@ class ProxyConfig(Base):
         DateTime, nullable=False, default=func.now(), onupdate=func.now()
     )
 
+    # 关联关系
+    owner: Mapped["User"] = relationship("User", back_populates="proxy_configs")
+
     # 索引定义
     __table_args__ = (
-        Index("idx_status_enabled", "status", "enabled"),
-        Index("idx_priority_weight", "priority", "weight"),
+        Index("idx_proxy_status_enabled", "status", "enabled"),
+        Index("idx_proxy_priority_weight", "priority", "weight"),
         {"comment": "代理配置表"},
     )
 
@@ -176,7 +204,6 @@ class ProxyConfig(Base):
     def proxy_url(self) -> str:
         """获取完整的代理 URL"""
         if self.username and self.password_encrypted:
-            # 注意：实际使用时需要解密密码
             return f"{self.protocol.value}://{self.username}:***@{self.host}:{self.port}"
         return f"{self.protocol.value}://{self.host}:{self.port}"
 

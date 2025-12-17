@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start APScheduler with async context manager
     from app.tasks.scheduler import get_scheduler
     from app.tasks.scraper_tasks import register_scraper_jobs, register_content_parser_job
+    from app.tasks.social_tasks import register_social_fetch_job
 
     scheduler = await get_scheduler()
 
@@ -42,6 +43,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             # Register content parser job (every 5 minutes)
             await register_content_parser_job(interval_seconds=300)
             logger.info("Content parser scheduler initialized")
+
+            # Register social data fetch job (every 10 minutes)
+            await register_social_fetch_job(interval_seconds=600)
+            logger.info("Social fetch scheduler initialized")
 
             yield
 

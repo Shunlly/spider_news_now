@@ -68,14 +68,22 @@ class ScraperService:
             logger.error(f"Failed to load scraper {source_key}: {str(e)}")
             raise
 
+    # 系统用户 UUID（用于后台任务）
+    SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000001"
+
     @staticmethod
-    async def run_scraper(db: AsyncSession, source_key: str) -> Optional[int]:
+    async def run_scraper(
+        db: AsyncSession,
+        source_key: str,
+        user_id: Optional[str] = None
+    ) -> Optional[int]:
         """
         Execute a scraper and save results to database.
 
         Args:
             db: Database session
             source_key: Source identifier to scrape
+            user_id: User ID for data ownership (defaults to system user)
 
         Returns:
             ScraperRun ID if successful, None if failed
@@ -89,6 +97,9 @@ class ScraperService:
             6. Update ScraperRun with statistics
             7. Update NewsSource status
         """
+        # 使用系统用户作为默认值
+        if user_id is None:
+            user_id = ScraperService.SYSTEM_USER_ID
         start_time = datetime.now()
 
         # Step 1: Get source configuration
@@ -106,6 +117,7 @@ class ScraperService:
 
         # Step 2: Create ScraperRun record
         scraper_run = ScraperRun(
+            user_id=user_id,
             source_key=source_key,
             started_at=start_time,
             status="running",
@@ -175,6 +187,8 @@ class ScraperService:
             if new_articles:
                 for article_data in new_articles:
                     try:
+                        # 添加 user_id 到文章数据
+                        article_data["user_id"] = user_id
                         article_model = NewsArticle(**article_data)
                         db.add(article_model)
                         await db.commit()

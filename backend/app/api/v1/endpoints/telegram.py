@@ -4,14 +4,17 @@ Telegram API Endpoints
 
 提供 Telegram 用户认证、频道管理和消息获取功能。
 基于 Telethon MTProto API 实现。
+需要登录认证才能访问。
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
+from app.models.user import User
 from app.services.telegram_service import get_telegram_service
 from app.schemas.telegram import (
     TelegramInitRequest,
@@ -49,7 +52,10 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 # =============================================================
 
 @router.post("/init", response_model=TelegramInitResponse)
-async def init_client(request: TelegramInitRequest):
+async def init_client(
+    request: TelegramInitRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     初始化 Telegram 客户端
 
@@ -73,7 +79,10 @@ async def init_client(request: TelegramInitRequest):
 
 
 @router.post("/send-code", response_model=TelegramSendCodeResponse)
-async def send_code(request: TelegramSendCodeRequest):
+async def send_code(
+    request: TelegramSendCodeRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     发送登录验证码
 
@@ -94,7 +103,10 @@ async def send_code(request: TelegramSendCodeRequest):
 
 
 @router.post("/sign-in", response_model=TelegramSignInResponse)
-async def sign_in(request: TelegramSignInRequest):
+async def sign_in(
+    request: TelegramSignInRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     验证登录
 
@@ -126,7 +138,10 @@ async def sign_in(request: TelegramSignInRequest):
 
 
 @router.post("/connect", response_model=TelegramConnectResponse)
-async def connect_with_session(request: TelegramConnectRequest):
+async def connect_with_session(
+    request: TelegramConnectRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     使用 StringSession 连接
 
@@ -160,7 +175,9 @@ async def connect_with_session(request: TelegramConnectRequest):
 
 
 @router.get("/status", response_model=TelegramStatusResponse)
-async def get_status():
+async def get_status(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     获取连接状态
 
@@ -179,7 +196,9 @@ async def get_status():
 
 
 @router.post("/disconnect", response_model=TelegramBaseResponse)
-async def disconnect():
+async def disconnect(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     断开连接
 
@@ -197,6 +216,7 @@ async def disconnect():
 
 @router.get("/dialogs", response_model=TelegramDialogsResponse)
 async def get_dialogs(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     limit: int = Query(100, ge=1, le=500, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
     filter_type: Optional[str] = Query(None, description="过滤类型: channel/group/user"),
@@ -226,7 +246,10 @@ async def get_dialogs(
 
 
 @router.post("/search", response_model=TelegramSearchResponse)
-async def search_channel(request: TelegramSearchRequest):
+async def search_channel(
+    request: TelegramSearchRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     搜索频道/用户
 
@@ -251,7 +274,10 @@ async def search_channel(request: TelegramSearchRequest):
 
 
 @router.post("/search-public", response_model=TelegramSearchPublicResponse)
-async def search_public(request: TelegramSearchPublicRequest):
+async def search_public(
+    request: TelegramSearchPublicRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     关键词搜索频道
 
@@ -276,7 +302,10 @@ async def search_public(request: TelegramSearchPublicRequest):
 
 
 @router.post("/join", response_model=TelegramBaseResponse)
-async def join_channel(request: TelegramJoinRequest):
+async def join_channel(
+    request: TelegramJoinRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     加入频道
 
@@ -296,7 +325,10 @@ async def join_channel(request: TelegramJoinRequest):
 
 
 @router.post("/leave", response_model=TelegramBaseResponse)
-async def leave_channel(request: TelegramLeaveRequest):
+async def leave_channel(
+    request: TelegramLeaveRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     退出频道
 
@@ -322,6 +354,7 @@ async def leave_channel(request: TelegramLeaveRequest):
 @router.get("/messages/{channel_id}", response_model=TelegramMessagesResponse)
 async def get_messages(
     channel_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     limit: int = Query(100, ge=1, le=1000, description="消息数量限制"),
     offset_id: int = Query(0, description="从指定消息 ID 开始获取"),
     min_date: Optional[datetime] = Query(None, description="最早日期"),
@@ -354,7 +387,10 @@ async def get_messages(
 
 
 @router.post("/messages", response_model=TelegramMessagesResponse)
-async def get_messages_post(request: TelegramMessagesRequest):
+async def get_messages_post(
+    request: TelegramMessagesRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
     """
     获取频道历史消息（POST 方式）
 

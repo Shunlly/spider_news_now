@@ -1,0 +1,12 @@
+# Spider News Dashboard - robots.txt
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+
+# Disallow admin/api paths
+Disallow: /api/
+Disallow: /admin/
+
+# Sitemap
+Sitemap: https://your-domain.com/sitemap.xml

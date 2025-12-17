@@ -7,6 +7,7 @@ Social Message Model - Twitter/Telegram Message Data
 - 存储原始消息内容和媒体附件
 """
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -24,6 +25,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
 if TYPE_CHECKING:
     from app.models.social_session import SocialSession
 
@@ -38,16 +44,20 @@ class SocialMessage(Base):
 
     __tablename__ = "social_messages"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
 
-    # 关联会话
-    session_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("social_sessions.id", ondelete="CASCADE"),
+    # 关联会话（逻辑外键）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    session_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("social_sessions.id"),
         nullable=False,
         index=True,
-        comment="所属会话 ID"
+        comment="所属会话UUID"
     )
 
     # 消息标识（用于去重）

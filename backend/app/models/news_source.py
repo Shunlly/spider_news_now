@@ -1,16 +1,23 @@
 """NewsSource SQLAlchemy model."""
 
+import uuid
 from datetime import datetime
 from typing import List, TYPE_CHECKING
 
-from sqlalchemy import Boolean, Integer, String, DateTime, func
+from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
 if TYPE_CHECKING:
     from app.models.news_article import NewsArticle
     from app.models.scraper_run import ScraperRun
+    from app.models.user import User
 
 
 class NewsSource(Base):
@@ -18,12 +25,26 @@ class NewsSource(Base):
     News source entity representing a website with scraper configuration.
 
     Tracks source metadata, scheduling, and health status.
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "news_sources"
 
-    # Primary Key
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # Primary Key (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # Source identification
     source_key: Mapped[str] = mapped_column(
@@ -55,6 +76,7 @@ class NewsSource(Base):
     )
 
     # Relationships
+    owner: Mapped["User"] = relationship("User", back_populates="news_sources")
     articles: Mapped[List["NewsArticle"]] = relationship(
         "NewsArticle", back_populates="source"
     )

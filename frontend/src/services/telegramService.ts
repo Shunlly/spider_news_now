@@ -54,7 +54,8 @@ export interface TelegramBaseResponse {
   message: string
 }
 
-export interface TelegramInitResponse extends TelegramBaseResponse {}
+// 响应类型别名（保持语义清晰）
+export type TelegramInitResponse = TelegramBaseResponse
 
 export interface TelegramSendCodeResponse extends TelegramBaseResponse {
   phone_code_hash?: string

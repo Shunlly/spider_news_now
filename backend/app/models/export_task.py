@@ -3,24 +3,34 @@
 Export Task Model - Data Export Management
 
 支持将采集的数据导出为各种格式（CSV、JSON、Excel）。
+数据隔离：通过 user_id 关联到创建者
 """
 
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
+
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
 
 
 class ExportFormat(str, Enum):
@@ -50,17 +60,31 @@ class ExportTask(Base):
 
     管理数据导出任务，支持后台异步处理。
     导出文件存储在对象存储中，提供下载链接。
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "export_tasks"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # 任务标识
     task_id: Mapped[str] = mapped_column(
         String(36), unique=True, index=True, nullable=False,
-        default=generate_task_id,
+        default=generate_uuid,
         comment="任务 UUID"
     )
 
@@ -146,10 +170,13 @@ class ExportTask(Base):
         comment="完成时间"
     )
 
+    # 关联关系
+    owner: Mapped["User"] = relationship("User", back_populates="export_tasks")
+
     # 索引定义
     __table_args__ = (
-        Index("idx_status_created", "status", "created_at"),
-        Index("idx_source_status", "data_source", "status"),
+        Index("idx_export_status_created", "status", "created_at"),
+        Index("idx_export_source_status", "data_source", "status"),
         {"comment": "数据导出任务表"},
     )
 
@@ -158,5 +185,5 @@ class ExportTask(Base):
             f"<ExportTask(id={self.id}, "
             f"task_id='{self.task_id}', "
             f"source='{self.data_source}', "
-            f"status='{self.status.value}')>"
+            f"status='{self.status}')>"
         )

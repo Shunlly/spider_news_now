@@ -5,26 +5,37 @@ Account Credentials Model - Social Platform Account Management
 遵循宪法 II.C 安全要求：
 - 凭证加密存储
 - 支持多账号轮换
+- 数据隔离：通过 user_id 关联到创建者
 """
 
+import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SQLEnum,
+    ForeignKey,
     Index,
     Integer,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.social_session import Platform
+
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class CredentialStatus(str, Enum):
@@ -42,12 +53,26 @@ class AccountCredential(Base):
 
     安全存储 Twitter/Telegram 等平台的 API 凭证。
     支持多账号轮换以应对 API 限流。
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "account_credentials"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # 凭证标识
     name: Mapped[str] = mapped_column(
@@ -75,9 +100,6 @@ class AccountCredential(Base):
     )
 
     # 凭证数据（加密存储）
-    # 不同平台存储不同字段，使用 JSON 格式
-    # Twitter: api_key, api_secret, access_token, access_secret, bearer_token
-    # Telegram: api_id, api_hash, phone_number, session_string
     credentials_encrypted: Mapped[str] = mapped_column(
         Text, nullable=False,
         comment="加密的凭证 JSON 数据"
@@ -119,10 +141,13 @@ class AccountCredential(Base):
         DateTime, nullable=False, default=func.now(), onupdate=func.now()
     )
 
+    # 关联关系
+    owner: Mapped["User"] = relationship("User", back_populates="account_credentials")
+
     # 索引定义
     __table_args__ = (
-        Index("idx_platform_status", "platform", "status"),
-        Index("idx_platform_default", "platform", "is_default"),
+        Index("idx_cred_platform_status", "platform", "status"),
+        Index("idx_cred_platform_default", "platform", "is_default"),
         {"comment": "社交平台账号凭证表"},
     )
 

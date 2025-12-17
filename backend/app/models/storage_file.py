@@ -7,6 +7,7 @@ Storage File Model - Media File Metadata Management
 - 支持多存储后端
 """
 
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -23,6 +24,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
 
 
 class StorageBackend(str, Enum):
@@ -52,8 +58,11 @@ class StorageFile(Base):
 
     __tablename__ = "storage_files"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
 
     # 文件标识
     file_key: Mapped[str] = mapped_column(
@@ -97,14 +106,14 @@ class StorageFile(Base):
         comment="公开访问 URL"
     )
 
-    # 关联来源
+    # 关联来源（逻辑外键）
     source_type: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True,
         comment="来源类型：news_article, social_message"
     )
-    source_id: Mapped[int] = mapped_column(
-        Integer, nullable=False, index=True,
-        comment="来源记录 ID"
+    source_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, index=True,
+        comment="来源记录UUID"
     )
 
     # 时间戳

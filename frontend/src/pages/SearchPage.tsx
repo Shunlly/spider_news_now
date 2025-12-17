@@ -1,19 +1,21 @@
 /**
  * 全文搜索页面
  * Full-Text Search Page
+ *
+ * Stone 色系极简设计
  */
 
 import { useState, useCallback } from 'react'
-import { GlassCard, GlassButton, GlassInput } from '@/components/glass'
+import { StoneCard, StoneButton, StoneInput, StoneSelect } from '@/components/ui'
 import {
-  IconSearch,
-  IconFilter,
-  IconCalendar,
-  IconLink,
-  IconLeft,
-  IconRight,
-  IconClose,
-} from '@arco-design/web-react/icon'
+  Search,
+  Filter,
+  Calendar,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from 'lucide-react'
 import { searchService, type SearchHit, type SearchResponse } from '@/services'
 
 export default function SearchPage() {
@@ -96,173 +98,174 @@ export default function SearchPage() {
     <div className="space-y-6 animate-in">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-2xl font-bold text-white">全文搜索</h1>
-        <p className="text-white/60 mt-1">搜索所有采集的内容</p>
+        <h1 className="text-2xl font-bold text-stone-900">全文搜索</h1>
+        <p className="text-stone-500 mt-1">搜索所有采集的内容</p>
       </div>
 
       {/* 搜索框 */}
-      <GlassCard className="p-6">
+      <StoneCard className="p-6">
         <div className="flex gap-4">
           <div className="flex-1">
-            <GlassInput
+            <StoneInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入搜索关键词..."
-              prefix={<IconSearch />}
+              prefix={<Search className="w-4 h-4" />}
             />
           </div>
-          <GlassButton
+          <StoneButton
+            variant="secondary"
             onClick={() => setShowFilters(!showFilters)}
-            className={hasActiveFilters ? 'ring-2 ring-blue-500/50' : ''}
+            className={hasActiveFilters ? 'ring-2 ring-stone-400' : ''}
           >
-            <IconFilter />
+            <Filter className="w-4 h-4" />
             {hasActiveFilters && (
-              <span className="ml-1 w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="ml-1 w-2 h-2 rounded-full bg-stone-600"></span>
             )}
-          </GlassButton>
-          <GlassButton variant="primary" onClick={() => handleSearch(1)} disabled={loading || !query.trim()}>
+          </StoneButton>
+          <StoneButton onClick={() => handleSearch(1)} disabled={loading || !query.trim()}>
             {loading ? '搜索中...' : '搜索'}
-          </GlassButton>
+          </StoneButton>
         </div>
 
         {/* 过滤器面板 */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-white/10">
+          <div className="mt-4 pt-4 border-t border-stone-200">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-white/60">高级过滤</span>
+              <span className="text-sm text-stone-500">高级过滤</span>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  className="text-sm text-stone-600 hover:text-stone-900 flex items-center gap-1"
                 >
-                  <IconClose className="text-xs" />
+                  <X className="w-3 h-3" />
                   清除过滤
                 </button>
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs text-white/40 mb-1">来源</label>
-                <select
+                <label className="block text-xs text-stone-400 mb-1">来源</label>
+                <StoneSelect
                   value={sourceFilter}
                   onChange={(e) => setSourceFilter(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                  className="w-full"
                 >
-                  <option value="" className="bg-slate-800 text-white">全部来源</option>
+                  <option value="">全部来源</option>
                   {Object.entries(facets.source_key || {}).map(([key, count]) => (
-                    <option key={key} value={key} className="bg-slate-800 text-white">
+                    <option key={key} value={key}>
                       {key} ({count})
                     </option>
                   ))}
-                </select>
+                </StoneSelect>
               </div>
               <div>
-                <label className="block text-xs text-white/40 mb-1">分类</label>
-                <select
+                <label className="block text-xs text-stone-400 mb-1">分类</label>
+                <StoneSelect
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                  className="w-full"
                 >
-                  <option value="" className="bg-slate-800 text-white">全部分类</option>
+                  <option value="">全部分类</option>
                   {Object.entries(facets.category || {}).map(([key, count]) => (
-                    <option key={key} value={key} className="bg-slate-800 text-white">
+                    <option key={key} value={key}>
                       {key} ({count})
                     </option>
                   ))}
-                </select>
+                </StoneSelect>
               </div>
               <div>
-                <label className="block text-xs text-white/40 mb-1">开始日期</label>
+                <label className="block text-xs text-stone-400 mb-1">开始日期</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                  className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-900 text-sm focus:outline-none focus:border-stone-400"
                 />
               </div>
               <div>
-                <label className="block text-xs text-white/40 mb-1">结束日期</label>
+                <label className="block text-xs text-stone-400 mb-1">结束日期</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                  className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-900 text-sm focus:outline-none focus:border-stone-400"
                 />
               </div>
             </div>
           </div>
         )}
-      </GlassCard>
+      </StoneCard>
 
       {/* 搜索结果 */}
-      <GlassCard className="overflow-hidden">
+      <StoneCard className="overflow-hidden">
         {!searched ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <IconSearch className="text-5xl text-white/20 mb-4" />
-            <p className="text-white/60">输入关键词开始搜索</p>
-            <p className="text-white/40 text-sm mt-2">
+            <Search className="w-16 h-16 text-stone-200 mb-4" />
+            <p className="text-stone-500">输入关键词开始搜索</p>
+            <p className="text-stone-400 text-sm mt-2">
               支持中文分词、按来源/分类过滤、时间范围筛选
             </p>
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900"></div>
           </div>
         ) : results.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <IconSearch className="text-5xl text-white/20 mb-4" />
-            <p className="text-white/60">未找到匹配的结果</p>
-            <p className="text-white/40 text-sm mt-2">
+            <Search className="w-16 h-16 text-stone-200 mb-4" />
+            <p className="text-stone-500">未找到匹配的结果</p>
+            <p className="text-stone-400 text-sm mt-2">
               尝试使用不同的关键词或调整过滤条件
             </p>
           </div>
         ) : (
           <>
             {/* 结果统计 */}
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-              <span className="text-sm text-white/60">
-                找到 <span className="text-white font-medium">{total.toLocaleString()}</span> 条结果
+            <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
+              <span className="text-sm text-stone-500">
+                找到 <span className="text-stone-900 font-medium">{total.toLocaleString()}</span> 条结果
               </span>
-              <span className="text-xs text-white/40">
+              <span className="text-xs text-stone-400">
                 耗时 {processingTimeMs}ms
               </span>
             </div>
 
             {/* 结果列表 */}
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-stone-100">
               {results.map((hit) => (
-                <div key={hit.id} className="p-4 hover:bg-white/5 transition-colors">
+                <div key={hit.id} className="p-4 hover:bg-stone-50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-medium mb-2">
+                      <h3 className="text-stone-900 font-medium mb-2">
                         {hit._formatted?.title ? (
                           <span
                             dangerouslySetInnerHTML={{ __html: hit._formatted.title }}
-                            className="[&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-bold"
+                            className="[&>em]:text-stone-600 [&>em]:not-italic [&>em]:font-bold [&>em]:bg-yellow-100"
                           />
                         ) : (
                           hit.title
                         )}
                       </h3>
                       {hit._formatted?.content && (
-                        <p className="text-sm text-white/60 line-clamp-2 mb-2">
+                        <p className="text-sm text-stone-500 line-clamp-2 mb-2">
                           <span
                             dangerouslySetInnerHTML={{ __html: hit._formatted.content }}
-                            className="[&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-bold"
+                            className="[&>em]:text-stone-700 [&>em]:not-italic [&>em]:font-bold [&>em]:bg-yellow-100"
                           />
                         </p>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-white/40">
-                        <span className="px-2 py-0.5 bg-white/10 rounded">
+                      <div className="flex items-center gap-4 text-xs text-stone-400">
+                        <span className="px-2 py-0.5 bg-stone-100 rounded">
                           {hit.source_key}
                         </span>
                         {hit.category && (
-                          <span className="text-white/30">{hit.category}</span>
+                          <span className="text-stone-400">{hit.category}</span>
                         )}
                         {hit.published_at && (
                           <span className="inline-flex items-center gap-1">
-                            <IconCalendar className="text-xs" />
+                            <Calendar className="w-3 h-3" />
                             {formatDate(hit.published_at)}
                           </span>
                         )}
@@ -273,9 +276,9 @@ export default function SearchPage() {
                         href={hit.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-shrink-0 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        className="flex-shrink-0 p-2 hover:bg-stone-100 rounded-lg transition-colors"
                       >
-                        <IconLink className="text-white/60" />
+                        <ExternalLink className="w-4 h-4 text-stone-500" />
                       </a>
                     )}
                   </div>
@@ -285,17 +288,17 @@ export default function SearchPage() {
 
             {/* 分页 */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
-                <span className="text-sm text-white/50">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-stone-100">
+                <span className="text-sm text-stone-500">
                   第 {page} / {totalPages} 页
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleSearch(page - 1)}
                     disabled={page === 1}
-                    className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <IconLeft className="text-white" />
+                    <ChevronLeft className="w-4 h-4 text-stone-700" />
                   </button>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -307,8 +310,8 @@ export default function SearchPage() {
                           onClick={() => handleSearch(pageNum)}
                           className={`w-8 h-8 rounded-lg text-sm transition-colors ${
                             pageNum === page
-                              ? 'bg-white/20 text-white'
-                              : 'hover:bg-white/10 text-white/60'
+                              ? 'bg-stone-900 text-white'
+                              : 'hover:bg-stone-100 text-stone-600'
                           }`}
                         >
                           {pageNum}
@@ -319,16 +322,16 @@ export default function SearchPage() {
                   <button
                     onClick={() => handleSearch(page + 1)}
                     disabled={page === totalPages}
-                    className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <IconRight className="text-white" />
+                    <ChevronRight className="w-4 h-4 text-stone-700" />
                   </button>
                 </div>
               </div>
             )}
           </>
         )}
-      </GlassCard>
+      </StoneCard>
     </div>
   )
 }

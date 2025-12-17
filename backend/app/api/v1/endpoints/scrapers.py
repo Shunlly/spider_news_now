@@ -1,13 +1,17 @@
 """Scraper management API endpoints."""
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, desc, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.news_source import NewsSource
 from app.models.scraper_run import ScraperRun
+from app.models.user import User
 from app.schemas.scraper import (
     ScraperTriggerResponse,
     ScraperStatusResponse,
@@ -19,6 +23,7 @@ from app.schemas.scraper import (
     ScraperConfigUpdate,
     ScraperEnableResponse,
 )
+from app.services.permission_service import apply_user_filter
 from app.tasks.scraper_tasks import trigger_scraper_now, trigger_content_parser_now
 
 logger = get_logger(__name__)
@@ -29,6 +34,7 @@ router = APIRouter(prefix="/scrapers", tags=["scrapers"])
 @router.post("/{source_key}/trigger", response_model=ScraperTriggerResponse, status_code=202)
 async def trigger_scraper(
     source_key: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -50,8 +56,9 @@ async def trigger_scraper(
         404: Source not found
         409: Scraper already running
     """
-    # Verify source exists
+    # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     source = result.scalar_one_or_none()
 
@@ -72,7 +79,7 @@ async def trigger_scraper(
     import asyncio
     asyncio.create_task(trigger_scraper_now(source_key))
 
-    logger.info("Manual trigger initiated", extra={"source_key": source_key})
+    logger.info("Manual trigger initiated", extra={"source_key": source_key, "user_id": current_user.id})
 
     from datetime import datetime
     return ScraperTriggerResponse(
@@ -86,6 +93,7 @@ async def trigger_scraper(
 
 @router.get("/status", response_model=ScraperStatusListResponse)
 async def get_scrapers_status(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -97,12 +105,11 @@ async def get_scrapers_status(
     - Success/failure statistics
     - Health status indicators
 
-    This endpoint is useful for:
-    - Monitoring dashboard
-    - Health checks
-    - Operational visibility
+    Note: Admin sees all scrapers, regular users see only their own.
     """
+    # 应用用户过滤：管理员看所有，普通用户看自己的
     stmt = select(NewsSource).order_by(NewsSource.source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     sources = result.scalars().all()
 
@@ -194,6 +201,7 @@ async def get_scrapers_status(
 @router.post("", response_model=NewsSourceResponse, status_code=201)
 async def create_scraper(
     source_data: NewsSourceCreate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -239,8 +247,9 @@ async def create_scraper(
             detail=f"Cannot import scraper module '{source_data.scraper_module}': {str(e)}"
         )
 
-    # Create new source
+    # Create new source with user_id
     new_source = NewsSource(
+        user_id=current_user.id,  # 设置所有者
         source_key=source_data.source_key,
         display_name=source_data.display_name,
         enabled=source_data.enabled,
@@ -253,7 +262,7 @@ async def create_scraper(
     await db.commit()
     await db.refresh(new_source)
 
-    logger.info("Created new source", extra={"source_key": source_data.source_key})
+    logger.info("Created new source", extra={"source_key": source_data.source_key, "user_id": current_user.id})
 
     return NewsSourceResponse.model_validate(new_source)
 
@@ -261,6 +270,7 @@ async def create_scraper(
 @router.put("/{source_key}/enable", response_model=ScraperEnableResponse)
 async def enable_scraper(
     source_key: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -275,7 +285,9 @@ async def enable_scraper(
     Raises:
         404: Source not found
     """
+    # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     source = result.scalar_one_or_none()
 
@@ -294,7 +306,7 @@ async def enable_scraper(
             next_run_at=next_run,
         )
 
-    # Enable the source
+    # Enable the source (only if user has permission - already verified above)
     from datetime import datetime, timedelta
     await db.execute(
         update(NewsSource)
@@ -306,7 +318,7 @@ async def enable_scraper(
     # Calculate next run time
     next_run = datetime.now() + timedelta(seconds=source.schedule_interval)
 
-    logger.info("Enabled scraper", extra={"source_key": source_key})
+    logger.info("Enabled scraper", extra={"source_key": source_key, "user_id": current_user.id})
 
     return ScraperEnableResponse(
         message=f"Scraper '{source_key}' enabled successfully",
@@ -319,6 +331,7 @@ async def enable_scraper(
 @router.put("/{source_key}/disable", response_model=ScraperEnableResponse)
 async def disable_scraper(
     source_key: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -333,7 +346,9 @@ async def disable_scraper(
     Raises:
         404: Source not found
     """
+    # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     source = result.scalar_one_or_none()
 
@@ -348,7 +363,7 @@ async def disable_scraper(
             next_run_at=None,
         )
 
-    # Disable the source
+    # Disable the source (only if user has permission - already verified above)
     await db.execute(
         update(NewsSource)
         .where(NewsSource.source_key == source_key)
@@ -356,7 +371,7 @@ async def disable_scraper(
     )
     await db.commit()
 
-    logger.info("Disabled scraper", extra={"source_key": source_key})
+    logger.info("Disabled scraper", extra={"source_key": source_key, "user_id": current_user.id})
 
     return ScraperEnableResponse(
         message=f"Scraper '{source_key}' disabled successfully",
@@ -370,6 +385,7 @@ async def disable_scraper(
 async def update_scraper_config(
     source_key: str,
     config: ScraperConfigUpdate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -388,14 +404,16 @@ async def update_scraper_config(
     Raises:
         404: Source not found
     """
+    # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     source = result.scalar_one_or_none()
 
     if not source:
         raise HTTPException(status_code=404, detail=f"Source '{source_key}' not found")
 
-    # Update configuration
+    # Update configuration (only if user has permission - already verified above)
     await db.execute(
         update(NewsSource)
         .where(NewsSource.source_key == source_key)
@@ -406,7 +424,7 @@ async def update_scraper_config(
 
     logger.info(
         "Updated scraper config",
-        extra={"source_key": source_key, "schedule_interval": config.schedule_interval}
+        extra={"source_key": source_key, "schedule_interval": config.schedule_interval, "user_id": current_user.id}
     )
 
     return NewsSourceResponse.model_validate(source)
@@ -415,6 +433,7 @@ async def update_scraper_config(
 @router.get("/{source_key}/runs", response_model=ScraperRunListResponse)
 async def get_scraper_runs(
     source_key: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
@@ -436,8 +455,9 @@ async def get_scraper_runs(
     Returns:
         Paginated list of scraper run records
     """
-    # Verify source exists
+    # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     result = await db.execute(stmt)
     source = result.scalar_one_or_none()
 
@@ -476,6 +496,7 @@ async def get_scraper_runs(
 
 @router.post("/content-parser/trigger", status_code=202)
 async def trigger_content_parser(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     batch_size: int = Query(50, ge=1, le=200, description="Number of articles to process"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -495,7 +516,7 @@ async def trigger_content_parser(
     # 异步执行，不阻塞
     asyncio.create_task(trigger_content_parser_now(batch_size))
 
-    logger.info("Content parser triggered", extra={"batch_size": batch_size})
+    logger.info("Content parser triggered", extra={"batch_size": batch_size, "user_id": current_user.id})
 
     return {
         "message": "Content parser triggered successfully",
@@ -506,6 +527,7 @@ async def trigger_content_parser(
 
 @router.get("/content-parser/status")
 async def get_content_parser_status(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """

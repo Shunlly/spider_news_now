@@ -32,6 +32,7 @@ class NewsService:
         page_size: int = 50,
         sort_by: str = "published_at",
         sort_order: str = "desc",
+        user_id: Optional[int] = None,
     ) -> tuple[List[NewsArticle], int]:
         """
         Get paginated news articles with optional filtering.
@@ -47,12 +48,17 @@ class NewsService:
             page_size: Items per page (max 1000)
             sort_by: Sort field (published_at, scraped_at, title)
             sort_order: Sort order (asc, desc)
+            user_id: Filter by user_id (None = no filter, for admin)
 
         Returns:
             Tuple of (articles list, total count)
         """
         # Build query
         stmt = select(NewsArticle)
+
+        # Apply user filter (data isolation)
+        if user_id is not None:
+            stmt = stmt.where(NewsArticle.user_id == user_id)
 
         # Apply filters
         if source:
@@ -108,6 +114,7 @@ class NewsService:
         category: Optional[str] = None,
         start_date: Optional[datetime] = None,
         limit_per_source: int = 10,
+        user_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Get articles grouped by source for display.
@@ -117,6 +124,7 @@ class NewsService:
             category: Filter by category
             start_date: Filter articles published after this date (default: 24h ago)
             limit_per_source: Maximum articles per source
+            user_id: Filter by user_id (None = no filter, for admin)
 
         Returns:
             List of source groups with articles
@@ -124,8 +132,10 @@ class NewsService:
         if start_date is None:
             start_date = datetime.now() - timedelta(hours=24)
 
-        # Get all sources
+        # Get sources (filtered by user_id if provided)
         source_stmt = select(NewsSource).where(NewsSource.enabled == True)  # noqa: E712
+        if user_id is not None:
+            source_stmt = source_stmt.where(NewsSource.user_id == user_id)
         source_result = await db.execute(source_stmt)
         sources = source_result.scalars().all()
 
@@ -137,6 +147,10 @@ class NewsService:
                 NewsArticle.source_key == source.source_key,
                 NewsArticle.published_at >= start_date,
             )
+
+            # Apply user filter for articles
+            if user_id is not None:
+                stmt = stmt.where(NewsArticle.user_id == user_id)
 
             if category:
                 stmt = stmt.where(NewsArticle.category == category)
@@ -168,7 +182,9 @@ class NewsService:
 
     @staticmethod
     async def get_article_by_id(
-        db: AsyncSession, article_id: int
+        db: AsyncSession,
+        article_id: int,
+        user_id: Optional[int] = None,
     ) -> Optional[NewsArticle]:
         """
         Get a single article by ID.
@@ -176,27 +192,43 @@ class NewsService:
         Args:
             db: Database session
             article_id: Article ID
+            user_id: Filter by user_id (None = no filter, for admin)
 
         Returns:
             NewsArticle if found, None otherwise
         """
         stmt = select(NewsArticle).where(NewsArticle.id == article_id)
+        if user_id is not None:
+            stmt = stmt.where(NewsArticle.user_id == user_id)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_statistics(db: AsyncSession) -> Dict[str, Any]:
+    async def get_statistics(
+        db: AsyncSession,
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """
         Get aggregated statistics about news articles.
 
         Args:
             db: Database session
+            user_id: Filter by user_id (None = no filter, for admin)
 
         Returns:
             Dictionary with statistics
         """
+        # Build base filters
+        article_filter = []
+        source_filter = []
+        if user_id is not None:
+            article_filter.append(NewsArticle.user_id == user_id)
+            source_filter.append(NewsSource.user_id == user_id)
+
         # Total articles
         total_stmt = select(func.count(NewsArticle.id))
+        if article_filter:
+            total_stmt = total_stmt.where(*article_filter)
         total_result = await db.execute(total_stmt)
         total_articles = total_result.scalar() or 0
 
@@ -205,6 +237,8 @@ class NewsService:
         today_stmt = select(func.count(NewsArticle.id)).where(
             NewsArticle.scraped_at >= today_start
         )
+        if article_filter:
+            today_stmt = today_stmt.where(*article_filter)
         today_result = await db.execute(today_stmt)
         articles_today = today_result.scalar() or 0
 
@@ -218,7 +252,10 @@ class NewsService:
             NewsArticle,
             (NewsSource.source_key == NewsArticle.source_key) & (NewsArticle.scraped_at >= today_start),
             isouter=True
-        ).group_by(
+        )
+        if source_filter:
+            source_stmt = source_stmt.where(*source_filter)
+        source_stmt = source_stmt.group_by(
             NewsSource.source_key, NewsSource.display_name
         )
         source_result = await db.execute(source_stmt)
@@ -238,7 +275,10 @@ class NewsService:
             func.count(NewsArticle.id).label("article_count"),
         ).where(
             NewsArticle.category.isnot(None)
-        ).group_by(
+        )
+        if article_filter:
+            category_stmt = category_stmt.where(*article_filter)
+        category_stmt = category_stmt.group_by(
             NewsArticle.category
         ).order_by(
             desc("article_count")
@@ -251,6 +291,8 @@ class NewsService:
 
         # Source health
         source_health_stmt = select(NewsSource)
+        if source_filter:
+            source_health_stmt = source_health_stmt.where(*source_filter)
         source_health_result = await db.execute(source_health_stmt)
         all_sources = source_health_result.scalars().all()
         sources_active = sum(1 for s in all_sources if s.status == "idle")
@@ -258,6 +300,8 @@ class NewsService:
 
         # Last scrape time
         last_scrape_stmt = select(func.max(NewsArticle.scraped_at))
+        if article_filter:
+            last_scrape_stmt = last_scrape_stmt.where(*article_filter)
         last_scrape_result = await db.execute(last_scrape_stmt)
         last_scrape_time = last_scrape_result.scalar()
 

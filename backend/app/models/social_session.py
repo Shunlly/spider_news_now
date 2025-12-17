@@ -5,8 +5,10 @@ Social Session Model - Twitter/Telegram Session Data
 遵循宪法 II.B 异构数据建模：
 - 社交数据采用 Session 模式，与新闻 Article 模式区分
 - Session 包含多个 Message，支持时间线展示
+- 数据隔离：通过 user_id 关联到创建者
 """
 
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
@@ -14,6 +16,7 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
+    ForeignKey,
     Index,
     Integer,
     String,
@@ -24,8 +27,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
 if TYPE_CHECKING:
     from app.models.social_message import SocialMessage
+    from app.models.user import User
 
 
 class Platform(str, Enum):
@@ -59,12 +68,26 @@ class SocialSession(Base):
     - Telegram 频道/群组
 
     每个 Session 包含多条 Message。
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "social_sessions"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # 会话标识
     session_key: Mapped[str] = mapped_column(
@@ -74,7 +97,8 @@ class SocialSession(Base):
 
     # 平台信息
     platform: Mapped[Platform] = mapped_column(
-        SQLEnum(Platform), nullable=False, index=True,
+        SQLEnum(Platform, values_callable=lambda x: [e.value for e in x]),
+        nullable=False, index=True,
         comment="社交平台类型"
     )
 
@@ -92,7 +116,8 @@ class SocialSession(Base):
         comment="目标用户名（如 @username）"
     )
     target_type: Mapped[TargetType] = mapped_column(
-        SQLEnum(TargetType), nullable=False, default=TargetType.USER,
+        SQLEnum(TargetType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False, default=TargetType.USER,
         comment="目标类型：用户、频道、群组、话题"
     )
 
@@ -104,7 +129,7 @@ class SocialSession(Base):
 
     # 状态信息
     status: Mapped[SessionStatus] = mapped_column(
-        SQLEnum(SessionStatus),
+        SQLEnum(SessionStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=SessionStatus.ACTIVE,
         index=True,
@@ -140,6 +165,7 @@ class SocialSession(Base):
     )
 
     # 关联关系
+    owner: Mapped["User"] = relationship("User", back_populates="social_sessions")
     messages: Mapped[List["SocialMessage"]] = relationship(
         "SocialMessage",
         back_populates="session",
@@ -151,6 +177,7 @@ class SocialSession(Base):
     __table_args__ = (
         Index("idx_platform_status", "platform", "status"),
         Index("idx_platform_target", "platform", "target_id"),
+        Index("idx_session_user_platform", "user_id", "platform"),
         {"comment": "社交数据会话表"},
     )
 

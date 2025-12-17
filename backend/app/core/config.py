@@ -86,11 +86,38 @@ class Settings(BaseSettings):
     TELEGRAM_API_ID: Optional[str] = None
     TELEGRAM_API_HASH: Optional[str] = None
 
+    # ========== 代理配置 (可选) ==========
+    HTTP_PROXY: Optional[str] = None
+
     # ========== 安全配置 ==========
     # 用于凭证加密的密钥 (生产环境必须设置)
     SECRET_KEY: str = "development_secret_key_change_in_production"
     # Fernet 加密密钥 (用于敏感数据加密)
     FERNET_KEY: Optional[str] = None
+
+    # ========== JWT 认证配置 ==========
+    # JWT 签名算法
+    JWT_ALGORITHM: str = "HS256"
+    # Access Token 有效期（分钟）
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    # Refresh Token 有效期（天）
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # ========== 验证码配置 ==========
+    # 验证码有效期（秒）
+    CAPTCHA_EXPIRE_SECONDS: int = 300
+    # 滑块验证容差（像素）- 允许 ±10 像素误差
+    CAPTCHA_TOLERANCE: int = 10
+    # 单个验证码最大尝试次数
+    CAPTCHA_MAX_ATTEMPTS: int = 3
+    # 开发环境跳过验证码
+    SKIP_CAPTCHA: bool = False
+
+    # ========== 账号安全配置 ==========
+    # 最大登录失败次数（超过后锁定账号）
+    MAX_LOGIN_ATTEMPTS: int = 5
+    # 账号锁定时间（分钟）
+    ACCOUNT_LOCKOUT_MINUTES: int = 15
 
     # ========== 导出配置 ==========
     EXPORT_DIR: str = "./exports"

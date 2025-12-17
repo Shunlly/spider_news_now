@@ -145,7 +145,7 @@ services:
   # Application Services
   # =============================================================
   backend:
-    image: ghcr.io/${GITHUB_REPOSITORY}/backend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-shunlly/spider_news_now}/backend:latest
     container_name: news_scraper_backend
     restart: always
     depends_on:
@@ -218,7 +218,7 @@ services:
           memory: 1G
 
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY}/frontend:latest
+    image: ghcr.io/${GITHUB_REPOSITORY:-shunlly/spider_news_now}/frontend:latest
     container_name: news_scraper_frontend
     restart: always
     depends_on:

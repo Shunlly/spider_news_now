@@ -5,8 +5,10 @@ NewsArticle SQLAlchemy Model
 遵循宪法 II.B 数据建模：
 - 新闻数据采用 Article 模式
 - 支持全文搜索和 SimHash 去重
+- 数据隔离：通过 user_id 关联到创建者
 """
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -15,8 +17,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
 if TYPE_CHECKING:
     from app.models.news_source import NewsSource
+    from app.models.user import User
 
 
 class NewsArticle(Base):
@@ -25,12 +33,26 @@ class NewsArticle(Base):
 
     核心实体，存储采集的文章及其元数据。
     支持全文搜索索引和内容去重。
+    数据隔离：通过 user_id 关联到创建者
     """
 
     __tablename__ = "news_articles"
 
-    # 主键
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # 主键 (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
+
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
 
     # 文章标识（用于去重）
     url_hash: Mapped[str] = mapped_column(
@@ -76,7 +98,8 @@ class NewsArticle(Base):
         comment="正文解析重试次数"
     )
 
-    # 来源和分类
+    # 来源和分类（逻辑外键）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
     source_key: Mapped[str] = mapped_column(
         String(50), ForeignKey("news_sources.source_key"), nullable=False, index=True,
         comment="来源标识"
@@ -102,12 +125,14 @@ class NewsArticle(Base):
         DateTime, nullable=False, default=func.now(), onupdate=func.now()
     )
 
-    # Relationship
+    # Relationships
+    owner: Mapped["User"] = relationship("User", back_populates="news_articles")
     source: Mapped["NewsSource"] = relationship("NewsSource", back_populates="articles")
 
     # Composite index for common query patterns
     __table_args__ = (
         Index("idx_source_category_date", "source_key", "category", "published_at"),
+        Index("idx_article_user_date", "user_id", "published_at"),
     )
 
     def __repr__(self) -> str:

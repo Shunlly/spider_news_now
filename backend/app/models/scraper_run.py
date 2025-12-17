@@ -1,5 +1,6 @@
 """ScraperRun SQLAlchemy model."""
 
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -8,8 +9,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+
+def generate_uuid() -> str:
+    """生成 UUID 字符串"""
+    return str(uuid.uuid4())
+
 if TYPE_CHECKING:
     from app.models.news_source import NewsSource
+    from app.models.user import User
 
 
 class ScraperRun(Base):
@@ -17,16 +24,32 @@ class ScraperRun(Base):
     Scraper run entity representing a single execution.
 
     Tracks scraper execution history for monitoring and debugging.
+    数据隔离：通过 user_id 关联到执行者
     """
 
     __tablename__ = "scraper_runs"
 
-    # Primary Key
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # Primary Key (UUID)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=generate_uuid,
+        comment="主键UUID"
+    )
 
-    # Source identification
+    # 用户关联（逻辑外键，数据隔离）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+        comment="所属用户UUID"
+    )
+
+    # Source identification（逻辑外键）
+    # ForeignKey 用于 ORM 关系映射，但数据库层面不创建约束
     source_key: Mapped[str] = mapped_column(
-        String(50), ForeignKey("news_sources.source_key"), nullable=False, index=True
+        String(50), ForeignKey("news_sources.source_key"), nullable=False, index=True,
+        comment="来源标识"
     )
 
     # Execution timing
@@ -52,7 +75,8 @@ class ScraperRun(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Relationship
+    # Relationships
+    owner: Mapped["User"] = relationship("User", back_populates="scraper_runs")
     source: Mapped["NewsSource"] = relationship("NewsSource", back_populates="runs")
 
     # Indexes for common queries

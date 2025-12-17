@@ -1,0 +1,599 @@
+openapi: 3.0.3
+info:
+  title: Auth & RBAC API
+  description: 用户鉴权、数据隔离与安全验证 API 契约
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+
+tags:
+  - name: auth
+    description: 认证相关接口
+  - name: captcha
+    description: 验证码相关接口
+  - name: users
+    description: 用户管理接口
+
+paths:
+  /auth/captcha:
+    get:
+      tags:
+        - captcha
+      summary: 获取滑块验证码
+      description: |
+        生成并返回滑块验证码图片。
+        返回背景图、滑块图的 Base64 编码和验证 Token。
+      operationId: getCaptcha
+      responses:
+        "200":
+          description: 验证码生成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptchaResponse"
+        "429":
+          description: 请求过于频繁
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/verify-captcha:
+    post:
+      tags:
+        - captcha
+      summary: 验证滑块位置
+      description: |
+        验证用户提交的滑块位置是否正确。
+        验证成功后返回验证通过的 Token，用于后续登录。
+      operationId: verifyCaptcha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptchaVerifyRequest"
+      responses:
+        "200":
+          description: 验证成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptchaVerifyResponse"
+        "400":
+          description: 验证失败
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: 验证码已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: 用户登录
+      description: |
+        用户登录接口，需提供用户名、密码和验证码验证结果。
+        登录成功后返回 JWT Access Token。
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+          headers:
+            Set-Cookie:
+              description: Refresh Token (HttpOnly Cookie)
+              schema:
+                type: string
+        "401":
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: 验证码验证失败或账号被锁定
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "423":
+          description: 账号已被锁定
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: 用户登出
+      description: 登出当前用户，清除 Refresh Token Cookie
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: 刷新 Access Token
+      description: 使用 Refresh Token 获取新的 Access Token
+      operationId: refreshToken
+      responses:
+        "200":
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Refresh Token 无效或已过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      tags:
+        - auth
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的详细信息
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users:
+    get:
+      tags:
+        - users
+      summary: 获取用户列表
+      description: 获取系统用户列表 (仅管理员可访问)
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: role
+          in: query
+          schema:
+            $ref: "#/components/schemas/UserRole"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "401":
+          description: 未认证
+        "403":
+          description: 权限不足
+
+    post:
+      tags:
+        - users
+      summary: 创建用户
+      description: 创建新用户 (仅管理员可访问)
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          description: 请求参数错误
+        "401":
+          description: 未认证
+        "403":
+          description: 权限不足
+        "409":
+          description: 用户名已存在
+
+  /users/{user_id}:
+    get:
+      tags:
+        - users
+      summary: 获取用户详情
+      description: 获取指定用户详情 (仅管理员可访问)
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "404":
+          description: 用户不存在
+
+    put:
+      tags:
+        - users
+      summary: 更新用户
+      description: 更新用户信息 (仅管理员可访问)
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "404":
+          description: 用户不存在
+
+    delete:
+      tags:
+        - users
+      summary: 删除用户
+      description: 删除用户 (仅管理员可访问)
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: 删除成功
+        "404":
+          description: 用户不存在
+        "409":
+          description: 无法删除 (如用户有关联数据)
+
+  /users/{user_id}/unlock:
+    post:
+      tags:
+        - users
+      summary: 解锁用户账号
+      description: 解锁被锁定的用户账号 (仅管理员可访问)
+      operationId: unlockUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 解锁成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: 用户不存在
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserRole:
+      type: string
+      enum:
+        - admin
+        - user
+      description: 用户角色
+
+    CaptchaResponse:
+      type: object
+      required:
+        - token
+        - background
+        - slider
+        - slider_y
+      properties:
+        token:
+          type: string
+          description: 验证码 Token
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        background:
+          type: string
+          format: byte
+          description: 背景图 Base64
+        slider:
+          type: string
+          format: byte
+          description: 滑块图 Base64
+        slider_y:
+          type: integer
+          description: 滑块 Y 坐标位置
+          example: 80
+
+    CaptchaVerifyRequest:
+      type: object
+      required:
+        - token
+        - x
+      properties:
+        token:
+          type: string
+          description: 验证码 Token
+        x:
+          type: integer
+          description: 用户提交的滑块 X 坐标
+          minimum: 0
+          maximum: 300
+
+    CaptchaVerifyResponse:
+      type: object
+      required:
+        - success
+        - verified_token
+      properties:
+        success:
+          type: boolean
+          description: 验证是否成功
+        verified_token:
+          type: string
+          description: 验证通过后的 Token，用于登录请求
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+        - captcha_token
+      properties:
+        username:
+          type: string
+          description: 用户名
+          minLength: 3
+          maxLength: 50
+          example: "admin"
+        password:
+          type: string
+          format: password
+          description: 密码
+          minLength: 8
+          example: "password123"
+        captcha_token:
+          type: string
+          description: 验证码验证通过后的 Token
+
+    LoginResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT Access Token
+        token_type:
+          type: string
+          enum:
+            - bearer
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Token 有效期 (秒)
+          example: 900
+        user:
+          $ref: "#/components/schemas/UserResponse"
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: 新的 JWT Access Token
+        token_type:
+          type: string
+          enum:
+            - bearer
+        expires_in:
+          type: integer
+          description: Token 有效期 (秒)
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - username
+        - role
+        - is_active
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: 用户 ID
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          format: email
+          description: 邮箱
+        role:
+          $ref: "#/components/schemas/UserRole"
+        is_active:
+          type: boolean
+          description: 是否激活
+        last_login_at:
+          type: string
+          format: date-time
+          description: 最后登录时间
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+
+    UserCreateRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: 用户名
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-zA-Z0-9_]+$"
+        email:
+          type: string
+          format: email
+          description: 邮箱 (可选)
+        password:
+          type: string
+          format: password
+          description: 密码
+          minLength: 8
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: 邮箱
+        role:
+          $ref: "#/components/schemas/UserRole"
+        is_active:
+          type: boolean
+          description: 是否激活
+
+    UserListResponse:
+      type: object
+      required:
+        - users
+        - total
+        - page
+        - page_size
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserResponse"
+        total:
+          type: integer
+          description: 总数
+        page:
+          type: integer
+          description: 当前页
+        page_size:
+          type: integer
+          description: 每页数量
+
+    MessageResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: 消息内容
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: 错误详情
+        error_code:
+          type: string
+          description: 错误代码

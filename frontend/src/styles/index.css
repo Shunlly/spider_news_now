@@ -2,7 +2,7 @@
  * 全局样式
  * Global Styles
  *
- * 遵循宪法 III.A Glassmorphism 设计规范
+ * Stone 色系极简设计
  */
 
 @tailwind base;
@@ -25,118 +25,118 @@
   }
 
   body {
-    @apply min-h-screen;
-    background: linear-gradient(135deg,
-      #0f172a 0%,
-      #1e1b4b 25%,
-      #312e81 50%,
-      #1e1b4b 75%,
-      #0f172a 100%
-    );
-    background-attachment: fixed;
+    @apply min-h-screen bg-stone-200;
   }
 
-  /* 自定义滚动条 */
+  /* 自定义滚动条 - Stone 风格 */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    @apply bg-stone-100;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-white/20 rounded-full;
+    @apply bg-stone-300 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-white/30;
+    @apply bg-stone-400;
   }
 }
 
-/* Glassmorphism 组件样式 */
+/* Stone 组件样式 */
 @layer components {
-  /* 毛玻璃卡片 */
-  .glass-card {
+  /* Stone 卡片 */
+  .stone-card {
     @apply relative overflow-hidden;
-    @apply bg-white/10 backdrop-blur-xl;
-    @apply border border-white/20;
-    @apply rounded-2xl;
-    @apply shadow-glass;
+    @apply bg-white;
+    @apply border border-stone-200;
+    @apply rounded-xl;
+    @apply shadow-stone-sm;
     @apply transition-all duration-300;
   }
 
-  .glass-card:hover {
-    @apply bg-white/15;
-    @apply shadow-glass-lg;
-    @apply border-white/30;
+  .stone-card:hover {
+    @apply border-stone-300;
+    @apply shadow-stone-md;
   }
 
-  /* 毛玻璃按钮 */
-  .glass-button {
+  /* Stone 按钮 - 主要 */
+  .stone-button {
     @apply px-4 py-2;
-    @apply bg-white/10 backdrop-blur-md;
-    @apply border border-white/20;
+    @apply bg-stone-900 text-white;
     @apply rounded-xl;
-    @apply text-white font-medium;
+    @apply font-medium text-sm;
     @apply transition-all duration-200;
     @apply cursor-pointer;
+    @apply hover:bg-stone-800;
+    @apply hover:shadow-stone-md;
+    @apply hover:-translate-y-0.5;
+    @apply active:scale-95;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0;
   }
 
-  .glass-button:hover {
-    @apply bg-white/20;
-    @apply border-white/30;
-    @apply shadow-glass;
-  }
-
-  .glass-button:active {
-    @apply scale-95;
-  }
-
-  .glass-button-primary {
-    @apply glass-button;
-    @apply bg-indigo-500/50;
-    @apply border-indigo-400/30;
-  }
-
-  .glass-button-primary:hover {
-    @apply bg-indigo-500/70;
-    @apply border-indigo-400/50;
-  }
-
-  /* 毛玻璃输入框 */
-  .glass-input {
-    @apply w-full px-4 py-2;
-    @apply bg-white/5 backdrop-blur-md;
-    @apply border border-white/10;
+  /* Stone 按钮 - 次要 */
+  .stone-button-secondary {
+    @apply px-4 py-2;
+    @apply bg-white text-stone-700;
+    @apply border border-stone-200;
     @apply rounded-xl;
-    @apply text-white placeholder-white/40;
+    @apply font-medium text-sm;
+    @apply transition-all duration-200;
+    @apply cursor-pointer;
+    @apply hover:border-stone-300;
+    @apply hover:bg-stone-50;
+    @apply active:scale-95;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Stone 按钮 - 幽灵 */
+  .stone-button-ghost {
+    @apply px-4 py-2;
+    @apply bg-transparent text-stone-600;
+    @apply rounded-xl;
+    @apply font-medium text-sm;
+    @apply transition-all duration-200;
+    @apply cursor-pointer;
+    @apply hover:bg-stone-100;
+    @apply hover:text-stone-900;
+    @apply active:scale-95;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Stone 输入框 */
+  .stone-input {
+    @apply w-full px-4 py-2;
+    @apply bg-white;
+    @apply border border-stone-200;
+    @apply rounded-xl;
+    @apply text-stone-900 placeholder-stone-400;
     @apply outline-none;
     @apply transition-all duration-200;
+    @apply focus:border-stone-400;
+    @apply focus:ring-2 focus:ring-stone-200;
   }
 
-  .glass-input:focus {
-    @apply bg-white/10;
-    @apply border-white/30;
-    @apply ring-2 ring-indigo-500/30;
-  }
-
-  /* 毛玻璃导航栏 */
-  .glass-navbar {
+  /* Stone 导航栏 */
+  .stone-navbar {
     @apply fixed top-0 left-0 right-0 z-50;
     @apply h-16 px-6;
-    @apply bg-white/5 backdrop-blur-2xl;
-    @apply border-b border-white/10;
+    @apply bg-white;
+    @apply border-b border-stone-200;
     @apply flex items-center justify-between;
+    @apply shadow-stone-sm;
   }
 
-  /* 毛玻璃侧边栏 */
-  .glass-sidebar {
+  /* Stone 侧边栏 */
+  .stone-sidebar {
     @apply fixed left-0 top-16 bottom-0;
     @apply w-64 p-4;
-    @apply bg-white/5 backdrop-blur-xl;
-    @apply border-r border-white/10;
+    @apply bg-stone-50;
+    @apply border-r border-stone-200;
     @apply overflow-y-auto;
   }
 
@@ -148,7 +148,7 @@
   }
 
   .bento-item {
-    @apply glass-card p-4;
+    @apply stone-card p-4;
   }
 
   .bento-item-2x1 {
@@ -164,44 +164,55 @@
     @apply row-span-2;
   }
 
-  /* 统计数字动画 */
+  /* 统计数字 */
   .stat-number {
-    @apply text-3xl font-bold text-white;
+    @apply text-3xl font-bold text-stone-900;
     @apply tabular-nums;
   }
 
   .stat-label {
-    @apply text-sm text-white/60;
+    @apply text-sm text-stone-500;
     @apply mt-1;
-  }
-
-  /* 渐变文字 */
-  .gradient-text {
-    @apply bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400;
-    @apply bg-clip-text text-transparent;
   }
 
   /* 状态指示器 */
   .status-dot {
     @apply w-2 h-2 rounded-full;
-    @apply animate-pulse;
   }
 
   .status-dot-active {
-    @apply bg-green-400;
+    @apply bg-green-500;
+    @apply animate-pulse;
   }
 
   .status-dot-warning {
-    @apply bg-yellow-400;
+    @apply bg-yellow-500;
   }
 
   .status-dot-error {
-    @apply bg-red-400;
+    @apply bg-red-500;
   }
 
   .status-dot-idle {
-    @apply bg-gray-400;
-    animation: none;
+    @apply bg-stone-400;
+  }
+
+  /* 链接卡片样式（参考设计） */
+  .link-card {
+    @apply flex items-center justify-between;
+    @apply p-1 bg-white;
+    @apply border border-stone-200 rounded-xl;
+    @apply hover:border-stone-300 hover:shadow-stone-sm;
+    @apply transition-all duration-200;
+    @apply cursor-pointer;
+  }
+
+  .link-card-icon {
+    @apply w-10 h-10 rounded-lg;
+    @apply bg-stone-50 border border-stone-100;
+    @apply flex items-center justify-center;
+    @apply text-stone-700;
+    @apply group-hover:scale-105 transition-transform;
   }
 }
 
@@ -222,36 +233,10 @@
     }
   }
 
-  /* 闪烁效果 */
-  .shimmer {
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.1) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 2s infinite;
-  }
-
-  @keyframes shimmer {
-    0% {
-      background-position: -200% 0;
-    }
-    100% {
-      background-position: 200% 0;
-    }
-  }
-}
-
-/* Arco Design 主题覆盖 */
-:root {
-  --color-primary-6: 99 102 241; /* indigo-500 */
-  --color-bg-1: transparent;
-  --color-bg-2: rgba(255, 255, 255, 0.05);
-  --color-bg-3: rgba(255, 255, 255, 0.1);
-  --color-text-1: rgba(255, 255, 255, 0.9);
-  --color-text-2: rgba(255, 255, 255, 0.7);
-  --color-text-3: rgba(255, 255, 255, 0.5);
-  --color-border: rgba(255, 255, 255, 0.1);
+  /* 延迟动画 */
+  .delay-100 { animation-delay: 0.1s; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-300 { animation-delay: 0.3s; }
+  .delay-400 { animation-delay: 0.4s; }
+  .delay-500 { animation-delay: 0.5s; }
 }

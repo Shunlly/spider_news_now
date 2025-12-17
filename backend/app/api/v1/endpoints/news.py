@@ -1,13 +1,15 @@
 """News article API endpoints."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.news import (
     NewsArticleResponse,
     NewsArticleListResponse,
@@ -17,6 +19,7 @@ from app.schemas.news import (
 )
 from app.schemas.scraper import NewsSourceListResponse
 from app.services.news_service import NewsService
+from app.services.permission_service import apply_user_filter
 from app.models.news_source import NewsSource
 from sqlalchemy import select
 
@@ -27,6 +30,7 @@ router = APIRouter(prefix="/news", tags=["news"])
 
 @router.get("/articles", response_model=NewsArticleListResponse)
 async def get_articles(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     source: Optional[str] = Query(None, description="Filter by source key"),
     category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, description="Search in title"),
@@ -50,7 +54,11 @@ async def get_articles(
     - sort_order: Sort order (asc, desc)
 
     Returns paginated results with total count.
+    Note: Admin sees all articles, regular users see only their own.
     """
+    # 传递用户信息用于数据过滤
+    user_id = None if current_user.is_admin else current_user.id
+
     articles, total = await NewsService.get_articles(
         db,
         source=source,
@@ -62,6 +70,7 @@ async def get_articles(
         page_size=page_size,
         sort_by=sort_by,
         sort_order=sort_order,
+        user_id=user_id,
     )
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
@@ -79,6 +88,7 @@ async def get_articles(
 # to avoid route matching conflict (FastAPI matches routes in order)
 @router.get("/articles/grouped", response_model=NewsArticleGroupedResponse)
 async def get_articles_grouped(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     category: Optional[str] = Query(None, description="Filter by category"),
     start_date: Optional[datetime] = Query(None, description="Start date (default: 24h ago)"),
     limit_per_source: int = Query(10, ge=1, le=100, description="Max articles per source"),
@@ -89,6 +99,7 @@ async def get_articles_grouped(
 
     Useful for displaying articles organized by their source in the UI.
     By default returns articles from the last 24 hours.
+    Note: Admin sees all articles, regular users see only their own.
 
     Args:
         category: Optional category filter
@@ -98,11 +109,15 @@ async def get_articles_grouped(
     Returns:
         Articles grouped by source with source metadata
     """
+    # 传递用户信息用于数据过滤
+    user_id = None if current_user.is_admin else current_user.id
+
     groups = await NewsService.get_articles_grouped(
         db,
         category=category,
         start_date=start_date,
         limit_per_source=limit_per_source,
+        user_id=user_id,
     )
 
     # Convert to response format
@@ -131,14 +146,19 @@ async def get_articles_grouped(
 @router.get("/articles/{article_id}", response_model=NewsArticleDetailResponse)
 async def get_article(
     article_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
     Retrieve a single news article by ID.
 
     Returns detailed article information including URL hash and timestamps.
+    Note: Admin can access all articles, regular users only their own.
     """
-    article = await NewsService.get_article_by_id(db, article_id)
+    # 传递用户信息用于数据过滤
+    user_id = None if current_user.is_admin else current_user.id
+
+    article = await NewsService.get_article_by_id(db, article_id, user_id=user_id)
 
     if not article:
         raise HTTPException(status_code=404, detail=f"Article with id {article_id} not found")
@@ -148,11 +168,13 @@ async def get_article(
 
 @router.get("/sources", response_model=NewsSourceListResponse)
 async def get_sources(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     enabled_only: bool = Query(False, description="Return only enabled sources"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Retrieve list of all news sources.
+    Note: Admin sees all sources, regular users see only their own.
 
     Args:
         enabled_only: If True, only return enabled sources
@@ -161,6 +183,7 @@ async def get_sources(
         List of news sources with their status and configuration
     """
     stmt = select(NewsSource)
+    stmt = apply_user_filter(stmt, current_user, NewsSource)
     if enabled_only:
         stmt = stmt.where(NewsSource.enabled == True)  # noqa: E712
 
@@ -177,10 +200,12 @@ async def get_sources(
 
 @router.get("/statistics", response_model=NewsStatisticsResponse)
 async def get_statistics(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
     Retrieve aggregated statistics about news collection.
+    Note: Admin sees all statistics, regular users see only their own data.
 
     Returns:
         Statistics including:
@@ -190,6 +215,9 @@ async def get_statistics(
         - Breakdown by category
         - Source health status
     """
-    stats = await NewsService.get_statistics(db)
+    # 传递用户信息用于数据过滤
+    user_id = None if current_user.is_admin else current_user.id
+
+    stats = await NewsService.get_statistics(db, user_id=user_id)
 
     return NewsStatisticsResponse(**stats)

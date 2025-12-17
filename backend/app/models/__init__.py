@@ -4,6 +4,7 @@
 Database Models Module
 
 包含所有 SQLAlchemy ORM 模型：
+- User: 用户（认证和权限）
 - NewsArticle: 新闻文章
 - NewsSource: 新闻来源
 - ScraperRun: 爬虫运行记录
@@ -15,6 +16,7 @@ Database Models Module
 - ExportTask: 导出任务
 """
 
+from app.models.user import User, UserRole
 from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource
 from app.models.scraper_run import ScraperRun
@@ -46,6 +48,9 @@ from app.models.export_task import (
 )
 
 __all__ = [
+    # 用户模型
+    "User",
+    "UserRole",
     # 新闻模型
     "NewsArticle",
     "NewsSource",

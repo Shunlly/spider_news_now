@@ -86,16 +86,30 @@ class TelegramService:
 
             # 配置代理
             if proxy:
-                proxy_type = proxy.get("type", "socks5")
-                if proxy_type == "socks5":
+                proxy_type = proxy.get("proxy_type") or proxy.get("type", "socks5")
+                host = proxy.get("addr") or proxy.get("host")
+                port = proxy.get("port")
+
+                if proxy_type in ("socks5", "socks4"):
+                    import socks
+                    socks_type = socks.SOCKS5 if proxy_type == "socks5" else socks.SOCKS4
+                    client_params["proxy"] = (
+                        socks_type,
+                        host,
+                        port,
+                        True,  # rdns
+                        proxy.get("username") or None,
+                        proxy.get("password") or None,
+                    )
+                elif proxy_type == "http":
                     import socks
                     client_params["proxy"] = (
-                        socks.SOCKS5,
-                        proxy.get("host"),
-                        proxy.get("port"),
-                        True,  # rdns
-                        proxy.get("username"),
-                        proxy.get("password"),
+                        socks.HTTP,
+                        host,
+                        port,
+                        True,
+                        proxy.get("username") or None,
+                        proxy.get("password") or None,
                     )
 
             self.client = TelegramClient(**client_params)

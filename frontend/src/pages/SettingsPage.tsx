@@ -1,20 +1,21 @@
 /**
  * 系统设置页面
  * System Settings Page
+ *
+ * Stone 色系极简设计
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { GlassCard, GlassButton, GlassInput } from '@/components/glass'
+import { StoneCard, StoneButton, StoneInput, StoneSelect, StoneModal } from '@/components/ui'
 import {
-  IconPlus,
-  IconRefresh,
-  IconDelete,
-  IconCheck,
-  IconClose,
-  IconExperiment,
-  IconStar,
-  IconStarFill,
-} from '@arco-design/web-react/icon'
+  Plus,
+  RefreshCw,
+  Trash2,
+  Check,
+  X,
+  FlaskConical,
+  Star,
+} from 'lucide-react'
 import {
   credentialsService,
   proxiesService,
@@ -33,10 +34,10 @@ const credentialStatusLabels: Record<CredentialStatus, string> = {
 }
 
 const credentialStatusColors: Record<CredentialStatus, string> = {
-  active: 'bg-green-500/20 text-green-400',
-  inactive: 'bg-gray-500/20 text-gray-400',
-  revoked: 'bg-red-500/20 text-red-400',
-  rate_limited: 'bg-yellow-500/20 text-yellow-400',
+  active: 'bg-green-100 text-green-700',
+  inactive: 'bg-stone-100 text-stone-600',
+  revoked: 'bg-red-100 text-red-700',
+  rate_limited: 'bg-yellow-100 text-yellow-700',
 }
 
 const proxyStatusLabels: Record<ProxyStatus, string> = {
@@ -46,9 +47,9 @@ const proxyStatusLabels: Record<ProxyStatus, string> = {
 }
 
 const proxyStatusColors: Record<ProxyStatus, string> = {
-  active: 'bg-green-500/20 text-green-400',
-  failed: 'bg-red-500/20 text-red-400',
-  unknown: 'bg-gray-500/20 text-gray-400',
+  active: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+  unknown: 'bg-stone-100 text-stone-600',
 }
 
 export default function SettingsPage() {
@@ -205,63 +206,63 @@ export default function SettingsPage() {
     <div className="space-y-6 animate-in">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-2xl font-bold text-white">系统设置</h1>
-        <p className="text-white/60 mt-1">配置系统参数和凭证</p>
+        <h1 className="text-2xl font-bold text-stone-900">系统设置</h1>
+        <p className="text-stone-500 mt-1">配置系统参数和凭证</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* 凭证管理 */}
-        <GlassCard className="overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <h3 className="font-semibold text-white">API 凭证</h3>
+        <StoneCard className="overflow-hidden">
+          <div className="p-4 border-b border-stone-200 flex items-center justify-between">
+            <h3 className="font-semibold text-stone-900">API 凭证</h3>
             <div className="flex items-center gap-2">
-              <GlassButton
+              <StoneButton
                 size="sm"
-                icon={<IconRefresh />}
+                variant="secondary"
+                icon={<RefreshCw className="w-4 h-4" />}
                 onClick={fetchCredentials}
                 disabled={credentialsLoading}
               />
-              <GlassButton
+              <StoneButton
                 size="sm"
-                variant="primary"
-                icon={<IconPlus />}
+                icon={<Plus className="w-4 h-4" />}
                 onClick={() => setShowCredentialModal(true)}
               >
                 添加
-              </GlassButton>
+              </StoneButton>
             </div>
           </div>
 
           {credentialsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-stone-900"></div>
             </div>
           ) : credentials.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-white/60">暂无凭证</p>
-              <p className="text-white/40 text-sm mt-1">点击添加按钮创建新凭证</p>
+              <p className="text-stone-500">暂无凭证</p>
+              <p className="text-stone-400 text-sm mt-1">点击添加按钮创建新凭证</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/10 max-h-[400px] overflow-y-auto">
+            <div className="divide-y divide-stone-100 max-h-[400px] overflow-y-auto">
               {credentials.map((credential) => (
-                <div key={credential.id} className="p-4 hover:bg-white/5">
+                <div key={credential.id} className="p-4 hover:bg-stone-50">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-white">{credential.name}</span>
+                        <span className="font-medium text-stone-900">{credential.name}</span>
                         {credential.is_default && (
-                          <IconStarFill className="text-yellow-400 text-sm" />
+                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                         )}
                         <span className={`text-xs px-2 py-0.5 rounded ${credentialStatusColors[credential.status]}`}>
                           {credentialStatusLabels[credential.status]}
                         </span>
                       </div>
-                      <div className="text-xs text-white/40">
+                      <div className="text-xs text-stone-400">
                         {credential.platform === 'twitter' ? 'Twitter' : 'Telegram'} |
                         请求 {credential.request_count} |
                         错误 {credential.error_count}
                       </div>
-                      <div className="text-xs text-white/30 mt-1">
+                      <div className="text-xs text-stone-400 mt-1">
                         最后使用: {formatDate(credential.last_used_at)}
                       </div>
                     </div>
@@ -269,30 +270,30 @@ export default function SettingsPage() {
                       {!credential.is_default && (
                         <button
                           onClick={() => handleSetDefaultCredential(credential.id)}
-                          className="p-2 hover:bg-white/10 rounded-lg"
+                          className="p-2 hover:bg-stone-100 rounded-lg"
                           title="设为默认"
                         >
-                          <IconStar className="text-white/40" />
+                          <Star className="w-4 h-4 text-stone-400" />
                         </button>
                       )}
                       <button
                         onClick={() => handleTestCredential(credential.id)}
                         disabled={testingCredentialId === credential.id}
-                        className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-50"
+                        className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-50"
                         title="测试"
                       >
                         {testingCredentialId === credential.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-stone-900"></div>
                         ) : (
-                          <IconExperiment className="text-white/60" />
+                          <FlaskConical className="w-4 h-4 text-stone-500" />
                         )}
                       </button>
                       <button
                         onClick={() => handleDeleteCredential(credential.id)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg"
+                        className="p-2 hover:bg-red-50 rounded-lg"
                         title="删除"
                       >
-                        <IconDelete className="text-red-400" />
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </button>
                     </div>
                   </div>
@@ -300,60 +301,60 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
-        </GlassCard>
+        </StoneCard>
 
         {/* 代理管理 */}
-        <GlassCard className="overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <h3 className="font-semibold text-white">代理配置</h3>
+        <StoneCard className="overflow-hidden">
+          <div className="p-4 border-b border-stone-200 flex items-center justify-between">
+            <h3 className="font-semibold text-stone-900">代理配置</h3>
             <div className="flex items-center gap-2">
-              <GlassButton
+              <StoneButton
                 size="sm"
-                icon={<IconRefresh />}
+                variant="secondary"
+                icon={<RefreshCw className="w-4 h-4" />}
                 onClick={fetchProxies}
                 disabled={proxiesLoading}
               />
-              <GlassButton
+              <StoneButton
                 size="sm"
-                variant="primary"
-                icon={<IconPlus />}
+                icon={<Plus className="w-4 h-4" />}
                 onClick={() => setShowProxyModal(true)}
               >
                 添加
-              </GlassButton>
+              </StoneButton>
             </div>
           </div>
 
           {proxiesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-stone-900"></div>
             </div>
           ) : proxies.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-white/60">暂无代理</p>
-              <p className="text-white/40 text-sm mt-1">点击添加按钮创建新代理</p>
+              <p className="text-stone-500">暂无代理</p>
+              <p className="text-stone-400 text-sm mt-1">点击添加按钮创建新代理</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/10 max-h-[400px] overflow-y-auto">
+            <div className="divide-y divide-stone-100 max-h-[400px] overflow-y-auto">
               {proxies.map((proxy) => (
-                <div key={proxy.id} className="p-4 hover:bg-white/5">
+                <div key={proxy.id} className="p-4 hover:bg-stone-50">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-white">{proxy.name}</span>
+                        <span className="font-medium text-stone-900">{proxy.name}</span>
                         <span className={`text-xs px-2 py-0.5 rounded ${proxyStatusColors[proxy.status]}`}>
                           {proxyStatusLabels[proxy.status]}
                         </span>
                         {!proxy.enabled && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">
+                          <span className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-500">
                             已禁用
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-white/40">
+                      <div className="text-xs text-stone-400">
                         {proxy.protocol}://{proxy.host}:{proxy.port}
                       </div>
-                      <div className="text-xs text-white/30 mt-1">
+                      <div className="text-xs text-stone-400 mt-1">
                         成功 {proxy.success_count} / 失败 {proxy.failure_count}
                         {proxy.avg_response_time && (
                           <span> | 平均响应 {proxy.avg_response_time.toFixed(0)}ms</span>
@@ -363,33 +364,33 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleToggleProxy(proxy)}
-                        className="p-2 hover:bg-white/10 rounded-lg"
+                        className="p-2 hover:bg-stone-100 rounded-lg"
                         title={proxy.enabled ? '禁用' : '启用'}
                       >
                         {proxy.enabled ? (
-                          <IconCheck className="text-green-400" />
+                          <Check className="w-4 h-4 text-green-500" />
                         ) : (
-                          <IconClose className="text-white/40" />
+                          <X className="w-4 h-4 text-stone-400" />
                         )}
                       </button>
                       <button
                         onClick={() => handleTestProxy(proxy.id)}
                         disabled={testingProxyId === proxy.id}
-                        className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-50"
+                        className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-50"
                         title="测试"
                       >
                         {testingProxyId === proxy.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-stone-900"></div>
                         ) : (
-                          <IconExperiment className="text-white/60" />
+                          <FlaskConical className="w-4 h-4 text-stone-500" />
                         )}
                       </button>
                       <button
                         onClick={() => handleDeleteProxy(proxy.id)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg"
+                        className="p-2 hover:bg-red-50 rounded-lg"
                         title="删除"
                       >
-                        <IconDelete className="text-red-400" />
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </button>
                     </div>
                   </div>
@@ -397,169 +398,157 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
-        </GlassCard>
+        </StoneCard>
       </div>
 
       {/* 添加凭证模态框 */}
-      {showCredentialModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <GlassCard className="w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-white">添加 API 凭证</h3>
-              <button onClick={() => setShowCredentialModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
-                <IconClose className="text-white/60" />
-              </button>
+      <StoneModal
+        open={showCredentialModal}
+        onClose={() => setShowCredentialModal(false)}
+        title="添加 API 凭证"
+        width="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-stone-600 mb-2">凭证名称</label>
+            <StoneInput
+              value={newCredential.name}
+              onChange={(e) => setNewCredential({ ...newCredential, name: e.target.value })}
+              placeholder="例如: 主账号"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-stone-600 mb-2">平台</label>
+            <StoneSelect
+              value={newCredential.platform}
+              onChange={(e) => setNewCredential({
+                ...newCredential,
+                platform: e.target.value as 'twitter' | 'telegram',
+                credentials: {},
+              })}
+              className="w-full"
+            >
+              <option value="twitter">Twitter</option>
+              <option value="telegram">Telegram</option>
+            </StoneSelect>
+          </div>
+          {newCredential.platform === 'twitter' && (
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">Bearer Token</label>
+              <StoneInput
+                type="password"
+                value={newCredential.credentials.bearer_token || ''}
+                onChange={(e) => setNewCredential({
+                  ...newCredential,
+                  credentials: { ...newCredential.credentials, bearer_token: e.target.value },
+                })}
+                placeholder="Twitter API Bearer Token"
+              />
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-white/60 mb-2">凭证名称</label>
-                <GlassInput
-                  value={newCredential.name}
-                  onChange={(e) => setNewCredential({ ...newCredential, name: e.target.value })}
-                  placeholder="例如: 主账号"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">平台</label>
-                <select
-                  value={newCredential.platform}
-                  onChange={(e) => setNewCredential({
-                    ...newCredential,
-                    platform: e.target.value as 'twitter' | 'telegram',
-                    credentials: {},
-                  })}
-                  className="w-full bg-slate-800 border border-white/20 rounded-lg px-3 py-2 text-white"
-                >
-                  <option value="twitter" className="bg-slate-800 text-white">Twitter</option>
-                  <option value="telegram" className="bg-slate-800 text-white">Telegram</option>
-                </select>
-              </div>
-              {newCredential.platform === 'twitter' && (
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">Bearer Token</label>
-                  <GlassInput
-                    type="password"
-                    value={newCredential.credentials.bearer_token || ''}
-                    onChange={(e) => setNewCredential({
-                      ...newCredential,
-                      credentials: { ...newCredential.credentials, bearer_token: e.target.value },
-                    })}
-                    placeholder="Twitter API Bearer Token"
-                  />
-                </div>
-              )}
-              {newCredential.platform === 'telegram' && (
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">Bot Token</label>
-                  <GlassInput
-                    type="password"
-                    value={newCredential.credentials.bot_token || ''}
-                    onChange={(e) => setNewCredential({
-                      ...newCredential,
-                      credentials: { ...newCredential.credentials, bot_token: e.target.value },
-                    })}
-                    placeholder="Telegram Bot Token"
-                  />
-                </div>
-              )}
-              <div className="flex justify-end gap-3 mt-6">
-                <GlassButton onClick={() => setShowCredentialModal(false)}>取消</GlassButton>
-                <GlassButton
-                  variant="primary"
-                  onClick={handleCreateCredential}
-                  disabled={!newCredential.name || Object.keys(newCredential.credentials).length === 0}
-                >
-                  创建
-                </GlassButton>
-              </div>
+          )}
+          {newCredential.platform === 'telegram' && (
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">Bot Token</label>
+              <StoneInput
+                type="password"
+                value={newCredential.credentials.bot_token || ''}
+                onChange={(e) => setNewCredential({
+                  ...newCredential,
+                  credentials: { ...newCredential.credentials, bot_token: e.target.value },
+                })}
+                placeholder="Telegram Bot Token"
+              />
             </div>
-          </GlassCard>
+          )}
+          <div className="flex justify-end gap-3 mt-6">
+            <StoneButton variant="secondary" onClick={() => setShowCredentialModal(false)}>取消</StoneButton>
+            <StoneButton
+              onClick={handleCreateCredential}
+              disabled={!newCredential.name || Object.keys(newCredential.credentials).length === 0}
+            >
+              创建
+            </StoneButton>
+          </div>
         </div>
-      )}
+      </StoneModal>
 
       {/* 添加代理模态框 */}
-      {showProxyModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <GlassCard className="w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-white">添加代理</h3>
-              <button onClick={() => setShowProxyModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
-                <IconClose className="text-white/60" />
-              </button>
+      <StoneModal
+        open={showProxyModal}
+        onClose={() => setShowProxyModal(false)}
+        title="添加代理"
+        width="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-stone-600 mb-2">代理名称</label>
+            <StoneInput
+              value={newProxy.name}
+              onChange={(e) => setNewProxy({ ...newProxy, name: e.target.value })}
+              placeholder="例如: 美国代理1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">协议</label>
+              <StoneSelect
+                value={newProxy.protocol}
+                onChange={(e) => setNewProxy({ ...newProxy, protocol: e.target.value as ProxyProtocol })}
+                className="w-full"
+              >
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+                <option value="socks5">SOCKS5</option>
+              </StoneSelect>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-white/60 mb-2">代理名称</label>
-                <GlassInput
-                  value={newProxy.name}
-                  onChange={(e) => setNewProxy({ ...newProxy, name: e.target.value })}
-                  placeholder="例如: 美国代理1"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">协议</label>
-                  <select
-                    value={newProxy.protocol}
-                    onChange={(e) => setNewProxy({ ...newProxy, protocol: e.target.value as ProxyProtocol })}
-                    className="w-full bg-slate-800 border border-white/20 rounded-lg px-3 py-2 text-white"
-                  >
-                    <option value="http" className="bg-slate-800 text-white">HTTP</option>
-                    <option value="https" className="bg-slate-800 text-white">HTTPS</option>
-                    <option value="socks5" className="bg-slate-800 text-white">SOCKS5</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">端口</label>
-                  <GlassInput
-                    type="number"
-                    value={newProxy.port.toString()}
-                    onChange={(e) => setNewProxy({ ...newProxy, port: parseInt(e.target.value) || 80 })}
-                    placeholder="8080"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-2">主机地址</label>
-                <GlassInput
-                  value={newProxy.host}
-                  onChange={(e) => setNewProxy({ ...newProxy, host: e.target.value })}
-                  placeholder="proxy.example.com"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">用户名（可选）</label>
-                  <GlassInput
-                    value={newProxy.username}
-                    onChange={(e) => setNewProxy({ ...newProxy, username: e.target.value })}
-                    placeholder="用户名"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-white/60 mb-2">密码（可选）</label>
-                  <GlassInput
-                    type="password"
-                    value={newProxy.password}
-                    onChange={(e) => setNewProxy({ ...newProxy, password: e.target.value })}
-                    placeholder="密码"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <GlassButton onClick={() => setShowProxyModal(false)}>取消</GlassButton>
-                <GlassButton
-                  variant="primary"
-                  onClick={handleCreateProxy}
-                  disabled={!newProxy.name || !newProxy.host}
-                >
-                  创建
-                </GlassButton>
-              </div>
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">端口</label>
+              <StoneInput
+                type="number"
+                value={newProxy.port.toString()}
+                onChange={(e) => setNewProxy({ ...newProxy, port: parseInt(e.target.value) || 80 })}
+                placeholder="8080"
+              />
             </div>
-          </GlassCard>
+          </div>
+          <div>
+            <label className="block text-sm text-stone-600 mb-2">主机地址</label>
+            <StoneInput
+              value={newProxy.host}
+              onChange={(e) => setNewProxy({ ...newProxy, host: e.target.value })}
+              placeholder="proxy.example.com"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">用户名（可选）</label>
+              <StoneInput
+                value={newProxy.username}
+                onChange={(e) => setNewProxy({ ...newProxy, username: e.target.value })}
+                placeholder="用户名"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-stone-600 mb-2">密码（可选）</label>
+              <StoneInput
+                type="password"
+                value={newProxy.password}
+                onChange={(e) => setNewProxy({ ...newProxy, password: e.target.value })}
+                placeholder="密码"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <StoneButton variant="secondary" onClick={() => setShowProxyModal(false)}>取消</StoneButton>
+            <StoneButton
+              onClick={handleCreateProxy}
+              disabled={!newProxy.name || !newProxy.host}
+            >
+              创建
+            </StoneButton>
+          </div>
         </div>
-      )}
+      </StoneModal>
     </div>
   )
 }

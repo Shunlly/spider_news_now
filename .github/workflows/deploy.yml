@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      clean_deploy:
+        description: 'Clean deploy (remove all containers and volumes)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -103,12 +109,13 @@ jobs:
           LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
           WORKERS: ${{ secrets.WORKERS }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          CLEAN_DEPLOY: ${{ github.event.inputs.clean_deploy || 'false' }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          envs: REPO_NAME,GHCR_TOKEN,GITHUB_ACTOR,MYSQL_ROOT_PASSWORD,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_PORT,REDIS_PORT,MEILI_MASTER_KEY,MEILI_PORT,RUSTFS_ACCESS_KEY,RUSTFS_SECRET_KEY,RUSTFS_API_PORT,RUSTFS_CONSOLE_PORT,MINIO_BUCKET,SECRET_KEY,FERNET_KEY,LOG_LEVEL,WORKERS,ALLOWED_ORIGINS
+          envs: REPO_NAME,GHCR_TOKEN,GITHUB_ACTOR,MYSQL_ROOT_PASSWORD,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_PORT,REDIS_PORT,MEILI_MASTER_KEY,MEILI_PORT,RUSTFS_ACCESS_KEY,RUSTFS_SECRET_KEY,RUSTFS_API_PORT,RUSTFS_CONSOLE_PORT,MINIO_BUCKET,SECRET_KEY,FERNET_KEY,LOG_LEVEL,WORKERS,ALLOWED_ORIGINS,CLEAN_DEPLOY
           script: |
             cd ${{ secrets.DEPLOY_PATH || '/opt/app/spider_news_now' }}
 
@@ -145,9 +152,17 @@ jobs:
             docker pull ghcr.io/$REPO_NAME/backend:latest
             docker pull ghcr.io/$REPO_NAME/frontend:latest
 
-            # Restart services
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate backend frontend
+            # Clean deploy: remove all containers and volumes for fresh start
+            if [ "${CLEAN_DEPLOY}" = "true" ]; then
+              echo "=== CLEAN DEPLOY: Removing all containers and volumes ==="
+              docker-compose -f docker-compose.prod.yml down -v --remove-orphans
+              echo "=== Starting fresh deployment ==="
+              docker-compose -f docker-compose.prod.yml up -d
+            else
+              # Normal deploy: just recreate backend and frontend
+              docker-compose -f docker-compose.prod.yml pull
+              docker-compose -f docker-compose.prod.yml up -d --force-recreate backend frontend
+            fi
 
             # Cleanup old images
             docker image prune -f

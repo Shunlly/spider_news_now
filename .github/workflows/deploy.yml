@@ -160,7 +160,10 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
+            cd ${{ secrets.DEPLOY_PATH || '/opt/app/spider_news_now' }}
             echo "Waiting for backend to be healthy..."
+            echo "Checking container status..."
+            docker-compose -f docker-compose.prod.yml ps
             max_attempts=30
             attempt=0
             while [ $attempt -lt $max_attempts ]; do
@@ -173,5 +176,8 @@ jobs:
               sleep 10
             done
             echo "Health check failed after $max_attempts attempts"
-            docker-compose -f docker-compose.prod.yml logs --tail=50 backend
+            echo "=== Container Status ==="
+            docker-compose -f docker-compose.prod.yml ps
+            echo "=== Backend Logs ==="
+            docker-compose -f docker-compose.prod.yml logs --tail=100 backend
             exit 1

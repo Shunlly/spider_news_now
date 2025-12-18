@@ -158,9 +158,12 @@ services:
       rustfs:
         condition: service_healthy
     environment:
-      # Database
-      DATABASE_URL: mysql+aiomysql://${MYSQL_USER:-news_user}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-news_scraper}
-      SCHEDULER_JOBSTORE_URL: mysql+pymysql://${MYSQL_USER:-news_user}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-news_scraper}
+      # Database - 使用独立变量，应用程序会自动构建 URL 并处理特殊字符
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: ${MYSQL_USER:-news_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-news_scraper}
       # Redis
       REDIS_URL: redis://redis:6379/0
       # Meilisearch
@@ -195,19 +198,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: >
-      sh -c "
-        alembic upgrade head &&
-        gunicorn app.main:app
-        -w $${WORKERS:-4}
-        -k uvicorn.workers.UvicornWorker
-        -b 0.0.0.0:8000
-        --timeout 120
-        --keep-alive 5
-        --access-logfile -
-        --error-logfile -
-        --capture-output
-      "
+    command: |
+      sh -c 'alembic upgrade head && gunicorn app.main:app -w $${WORKERS:-4} -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --capture-output'
     deploy:
       resources:
         limits:

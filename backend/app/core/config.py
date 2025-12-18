@@ -4,8 +4,9 @@ Application configuration using Pydantic Settings.
 """
 
 from typing import List, Literal, Optional
+from urllib.parse import quote_plus
 
-from pydantic import MySQLDsn, field_validator
+from pydantic import MySQLDsn, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +22,33 @@ class Settings(BaseSettings):
     VERSION: str = "2.0.0"
 
     # ========== 数据库配置 ==========
-    DATABASE_URL: MySQLDsn
+    # 支持两种方式:
+    # 1. 直接设置 DATABASE_URL
+    # 2. 设置独立的 DB_* 变量 (会自动构建 URL，正确处理特殊字符)
+    DATABASE_URL: Optional[MySQLDsn] = None
+    DB_HOST: Optional[str] = None
+    DB_PORT: str = "3306"
+    DB_USER: Optional[str] = None
+    DB_PASSWORD: Optional[str] = None
+    DB_NAME: Optional[str] = None
+
+    @model_validator(mode="after")
+    def build_database_url(self) -> "Settings":
+        """如果提供了独立的 DB_* 变量，构建 DATABASE_URL 和 SCHEDULER_JOBSTORE_URL（密码会被 URL 编码）"""
+        if all([self.DB_HOST, self.DB_USER, self.DB_PASSWORD, self.DB_NAME]):
+            # URL 编码密码以处理特殊字符
+            encoded_password = quote_plus(self.DB_PASSWORD)
+
+            # 构建异步数据库 URL (aiomysql)
+            if self.DATABASE_URL is None:
+                async_url = f"mysql+aiomysql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+                object.__setattr__(self, "DATABASE_URL", async_url)
+
+            # 构建同步数据库 URL (pymysql) 用于 APScheduler
+            if not self.SCHEDULER_JOBSTORE_URL:
+                sync_url = f"mysql+pymysql://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+                object.__setattr__(self, "SCHEDULER_JOBSTORE_URL", sync_url)
+        return self
 
     # ========== CORS 配置 ==========
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

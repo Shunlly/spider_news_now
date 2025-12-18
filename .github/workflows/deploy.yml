@@ -150,6 +150,18 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            sleep 30
-            curl -f http://localhost:8001/api/v1/health || exit 1
-            echo "Deployment successful!"
+            echo "Waiting for backend to be healthy..."
+            max_attempts=30
+            attempt=0
+            while [ $attempt -lt $max_attempts ]; do
+              attempt=$((attempt + 1))
+              echo "Health check attempt $attempt/$max_attempts..."
+              if curl -sf http://localhost:8001/api/v1/health > /dev/null 2>&1; then
+                echo "Deployment successful! Backend is healthy."
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "Health check failed after $max_attempts attempts"
+            docker-compose -f docker-compose.prod.yml logs --tail=50 backend
+            exit 1

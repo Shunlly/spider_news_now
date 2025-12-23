@@ -11,7 +11,7 @@ Role-based Data Access Control
 - User 仅能查看自己的数据
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import Select
@@ -172,7 +172,7 @@ class PermissionChecker:
             ...
     """
 
-    def __init__(self, required_role: Optional[UserRole] = None):
+    def __init__(self, required_role: UserRole | None = None):
         """
         初始化权限检查器
 

@@ -9,7 +9,7 @@ Export Task Model - Data Export Management
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
@@ -97,11 +97,11 @@ class ExportTask(Base):
         String(20), nullable=False,
         comment="导出格式: CSV, JSON, EXCEL"
     )
-    filters: Mapped[Optional[str]] = mapped_column(
+    filters: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="过滤条件（JSON 格式）"
     )
-    filename: Mapped[Optional[str]] = mapped_column(
+    filename: Mapped[str | None] = mapped_column(
         String(255), nullable=True,
         comment="导出文件名"
     )
@@ -130,29 +130,29 @@ class ExportTask(Base):
     )
 
     # 输出文件
-    file_key: Mapped[Optional[str]] = mapped_column(
+    file_key: Mapped[str | None] = mapped_column(
         String(255), nullable=True,
         comment="存储文件键"
     )
-    file_path: Mapped[Optional[str]] = mapped_column(
+    file_path: Mapped[str | None] = mapped_column(
         String(512), nullable=True,
         comment="本地文件路径"
     )
-    file_size: Mapped[Optional[int]] = mapped_column(
+    file_size: Mapped[int | None] = mapped_column(
         Integer, nullable=True,
         comment="文件大小（字节）"
     )
-    download_url: Mapped[Optional[str]] = mapped_column(
+    download_url: Mapped[str | None] = mapped_column(
         String(512), nullable=True,
         comment="下载 URL"
     )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="下载链接过期时间"
     )
 
     # 错误信息
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="错误信息"
     )
@@ -161,11 +161,11 @@ class ExportTask(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=func.now()
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="开始处理时间"
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="完成时间"
     )

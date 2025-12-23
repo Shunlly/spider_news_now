@@ -12,8 +12,8 @@ Password Hashing and JWT Token Management
 - 无占位符代码
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import bcrypt
 from jose import JWTError, jwt
@@ -46,7 +46,14 @@ def hash_password(password: str) -> str:
     Returns:
         bcrypt 哈希后的密码字符串
     """
-    return pwd_context.hash(password)
+    # 使用 bcrypt 直接哈希，避免 passlib 兼容性问题
+    try:
+        return pwd_context.hash(password)
+    except Exception as e:
+        logger.debug("Passlib hash failed, falling back to bcrypt", extra={"error": str(e)})
+        # 直接使用 bcrypt 库
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -80,8 +87,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(
     subject: str | int,
-    expires_delta: Optional[timedelta] = None,
-    extra_claims: Optional[dict[str, Any]] = None,
+    expires_delta: timedelta | None = None,
+    extra_claims: dict[str, Any] | None = None,
 ) -> str:
     """
     创建 JWT Access Token
@@ -96,9 +103,9 @@ def create_access_token(
     """
     # 计算过期时间
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
@@ -106,7 +113,7 @@ def create_access_token(
     to_encode: dict[str, Any] = {
         "sub": str(subject),  # subject - 用户标识
         "exp": expire,        # expiration time - 过期时间
-        "iat": datetime.now(timezone.utc),  # issued at - 签发时间
+        "iat": datetime.now(UTC),  # issued at - 签发时间
         "type": "access",     # token 类型
     }
 
@@ -125,7 +132,7 @@ def create_access_token(
 
 def create_refresh_token(
     subject: str | int,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """
     创建 JWT Refresh Token
@@ -141,16 +148,16 @@ def create_refresh_token(
         编码后的 JWT Refresh Token 字符串
     """
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
 
     to_encode = {
         "sub": str(subject),
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "type": "refresh",  # 标记为 refresh token
     }
 
@@ -162,7 +169,7 @@ def create_refresh_token(
     return encoded_jwt
 
 
-def decode_token(token: str) -> Optional[dict[str, Any]]:
+def decode_token(token: str) -> dict[str, Any] | None:
     """
     解码并验证 JWT Token
 
@@ -186,7 +193,7 @@ def decode_token(token: str) -> Optional[dict[str, Any]]:
         return None
 
 
-def verify_token(token: str, token_type: str = "access") -> Optional[str]:
+def verify_token(token: str, token_type: str = "access") -> str | None:
     """
     验证 JWT Token 并返回用户 ID
 

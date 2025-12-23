@@ -1,8 +1,9 @@
 """Contract tests for scraper output schemas."""
 
-import pytest
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
+
+import pytest
 
 from app.schemas.news import NewsArticleCreate
 
@@ -16,7 +17,7 @@ class TestScraperOutputContract:
     """
 
     @pytest.fixture
-    def valid_scraper_output(self) -> Dict[str, Any]:
+    def valid_scraper_output(self) -> dict[str, Any]:
         """Valid scraper output matching contract."""
         return {
             "url": "https://news.sina.com.cn/example/article123",
@@ -28,7 +29,7 @@ class TestScraperOutputContract:
             "content_hash": None,
         }
 
-    def test_valid_article_schema(self, valid_scraper_output: Dict[str, Any]):
+    def test_valid_article_schema(self, valid_scraper_output: dict[str, Any]):
         """Test that valid scraper output passes schema validation."""
         # Should not raise validation error
         article = NewsArticleCreate(**valid_scraper_output)
@@ -37,7 +38,7 @@ class TestScraperOutputContract:
         assert article.title == valid_scraper_output["title"]
         assert article.source_key == valid_scraper_output["source_key"]
 
-    def test_url_hash_required(self, valid_scraper_output: Dict[str, Any]):
+    def test_url_hash_required(self, valid_scraper_output: dict[str, Any]):
         """Test that url_hash is required."""
         invalid_output = valid_scraper_output.copy()
         del invalid_output["url_hash"]
@@ -45,7 +46,7 @@ class TestScraperOutputContract:
         with pytest.raises(ValueError):
             NewsArticleCreate(**invalid_output)
 
-    def test_url_hash_must_be_64_chars(self, valid_scraper_output: Dict[str, Any]):
+    def test_url_hash_must_be_64_chars(self, valid_scraper_output: dict[str, Any]):
         """Test that url_hash must be exactly 64 characters (SHA-256)."""
         # Too short
         invalid_output = valid_scraper_output.copy()
@@ -60,7 +61,7 @@ class TestScraperOutputContract:
         with pytest.raises(ValueError):
             NewsArticleCreate(**invalid_output)
 
-    def test_title_required_and_non_empty(self, valid_scraper_output: Dict[str, Any]):
+    def test_title_required_and_non_empty(self, valid_scraper_output: dict[str, Any]):
         """Test that title is required and cannot be empty."""
         # Missing title
         invalid_output = valid_scraper_output.copy()
@@ -76,7 +77,7 @@ class TestScraperOutputContract:
         with pytest.raises(ValueError):
             NewsArticleCreate(**invalid_output)
 
-    def test_source_key_pattern_validation(self, valid_scraper_output: Dict[str, Any]):
+    def test_source_key_pattern_validation(self, valid_scraper_output: dict[str, Any]):
         """Test that source_key must match pattern (lowercase alphanumeric + underscore)."""
         # Invalid: uppercase
         invalid_output = valid_scraper_output.copy()
@@ -96,7 +97,7 @@ class TestScraperOutputContract:
         article = NewsArticleCreate(**invalid_output)
         assert article.source_key == "sina_news"
 
-    def test_category_optional(self, valid_scraper_output: Dict[str, Any]):
+    def test_category_optional(self, valid_scraper_output: dict[str, Any]):
         """Test that category is optional."""
         valid_output = valid_scraper_output.copy()
         valid_output["category"] = None
@@ -104,7 +105,7 @@ class TestScraperOutputContract:
         article = NewsArticleCreate(**valid_output)
         assert article.category is None
 
-    def test_content_hash_optional(self, valid_scraper_output: Dict[str, Any]):
+    def test_content_hash_optional(self, valid_scraper_output: dict[str, Any]):
         """Test that content_hash is optional."""
         valid_output = valid_scraper_output.copy()
         valid_output["content_hash"] = None
@@ -112,7 +113,7 @@ class TestScraperOutputContract:
         article = NewsArticleCreate(**valid_output)
         assert article.content_hash is None
 
-    def test_url_must_be_valid_http(self, valid_scraper_output: Dict[str, Any]):
+    def test_url_must_be_valid_http(self, valid_scraper_output: dict[str, Any]):
         """Test that URL must be valid HTTP/HTTPS."""
         # Invalid: not a URL
         invalid_output = valid_scraper_output.copy()
@@ -127,7 +128,7 @@ class TestScraperOutputContract:
         with pytest.raises(ValueError):
             NewsArticleCreate(**invalid_output)
 
-    def test_published_at_datetime_type(self, valid_scraper_output: Dict[str, Any]):
+    def test_published_at_datetime_type(self, valid_scraper_output: dict[str, Any]):
         """Test that published_at must be a valid datetime."""
         # Note: Pydantic v2 auto-parses ISO date strings to datetime
         # So we test with invalid date format instead
@@ -144,7 +145,7 @@ class TestScraperOutputContract:
         article = NewsArticleCreate(**valid_output)
         assert isinstance(article.published_at, datetime)
 
-    def test_multiple_articles_batch(self, valid_scraper_output: Dict[str, Any]):
+    def test_multiple_articles_batch(self, valid_scraper_output: dict[str, Any]):
         """Test that multiple articles can be created (simulates batch insert)."""
         articles = []
 

@@ -38,6 +38,7 @@ meilisearch-python-sdk==3.3.0
 
 # Object storage
 minio==7.2.12
+boto3==1.35.81  # AWS S3 SDK
 
 # Content processing
 simhash==2.1.2
@@ -55,3 +56,18 @@ sniffio==1.3.1
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 Pillow==10.4.0
+
+# Celery (Task Queue)
+celery[redis]==5.4.0
+
+# Bloom Filter (URL Deduplication)
+pybloom-live==4.0.0
+
+# News Content Extraction
+trafilatura==2.0.0
+
+# Structured Logging
+loguru==0.7.3
+
+# WebSocket Support
+websockets==14.1

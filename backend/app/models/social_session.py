@@ -11,17 +11,19 @@ Social Session Model - Twitter/Telegram Session Data
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
-    Enum as SQLEnum,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
     func,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -111,7 +113,7 @@ class SocialSession(Base):
         String(100), nullable=False,
         comment="目标显示名称"
     )
-    target_username: Mapped[Optional[str]] = mapped_column(
+    target_username: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="目标用户名（如 @username）"
     )
@@ -122,7 +124,7 @@ class SocialSession(Base):
     )
 
     # 会话配置
-    description: Mapped[Optional[str]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="会话描述/备注"
     )
@@ -141,7 +143,7 @@ class SocialSession(Base):
         Integer, nullable=False, default=0,
         comment="消息总数"
     )
-    last_message_at: Mapped[Optional[datetime]] = mapped_column(
+    last_message_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后一条消息时间"
     )
@@ -151,7 +153,7 @@ class SocialSession(Base):
         Integer, nullable=False, default=3600,
         comment="采集间隔（秒）"
     )
-    last_fetch_at: Mapped[Optional[datetime]] = mapped_column(
+    last_fetch_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后采集时间"
     )
@@ -166,7 +168,7 @@ class SocialSession(Base):
 
     # 关联关系
     owner: Mapped["User"] = relationship("User", back_populates="social_sessions")
-    messages: Mapped[List["SocialMessage"]] = relationship(
+    messages: Mapped[list["SocialMessage"]] = relationship(
         "SocialMessage",
         back_populates="session",
         cascade="all, delete-orphan",

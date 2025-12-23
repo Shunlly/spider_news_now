@@ -7,7 +7,7 @@ Credentials Management API Endpoints
 """
 
 import json
-from typing import Optional
+from typing import Annotated
 
 from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,10 +15,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.account_credential import AccountCredential, CredentialStatus
 from app.models.social_session import Platform
+from app.models.user import User
 from app.schemas.system import (
     CredentialActionResponse,
     CredentialCreate,
@@ -57,8 +59,9 @@ def decrypt_credentials(encrypted: str) -> dict:
 
 @router.get("", response_model=CredentialListResponse)
 async def list_credentials(
-    platform: Optional[Platform] = Query(None, description="按平台过滤"),
-    status: Optional[CredentialStatus] = Query(None, description="按状态过滤"),
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    platform: Platform | None = Query(None, description="按平台过滤"),
+    status: CredentialStatus | None = Query(None, description="按状态过滤"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -66,7 +69,7 @@ async def list_credentials(
 
     支持按平台和状态过滤。
     """
-    stmt = select(AccountCredential)
+    stmt = select(AccountCredential).where(AccountCredential.user_id == current_user.id)
 
     if platform:
         stmt = stmt.where(AccountCredential.platform == platform)
@@ -87,6 +90,7 @@ async def list_credentials(
 @router.post("", response_model=CredentialActionResponse)
 async def create_credential(
     data: CredentialCreate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -96,12 +100,13 @@ async def create_credential(
     """
     # 如果设置为默认，取消其他默认凭证
     if data.is_default:
-        await _clear_default_credentials(db, data.platform)
+        await _clear_default_credentials(db, current_user.id, data.platform)
 
     # 加密凭证数据
     encrypted = encrypt_credentials(data.credentials)
 
     credential = AccountCredential(
+        user_id=current_user.id,
         name=data.name,
         platform=data.platform,
         credentials_encrypted=encrypted,
@@ -125,18 +130,20 @@ async def create_credential(
 
 @router.get("/{credential_id}", response_model=CredentialResponse)
 async def get_credential(
-    credential_id: int,
+    credential_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """获取凭证详情"""
-    credential = await _get_credential_or_404(db, credential_id)
+    credential = await _get_credential_or_404(db, credential_id, current_user.id)
     return CredentialResponse.model_validate(credential)
 
 
 @router.put("/{credential_id}", response_model=CredentialActionResponse)
 async def update_credential(
-    credential_id: int,
+    credential_id: str,
     data: CredentialUpdate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -144,11 +151,11 @@ async def update_credential(
 
     可以更新名称、状态、是否默认等。
     """
-    credential = await _get_credential_or_404(db, credential_id)
+    credential = await _get_credential_or_404(db, credential_id, current_user.id)
 
     # 如果设置为默认，取消其他默认凭证
     if data.is_default and not credential.is_default:
-        await _clear_default_credentials(db, credential.platform)
+        await _clear_default_credentials(db, current_user.id, credential.platform)
 
     # 更新字段
     update_dict = data.model_dump(exclude_unset=True, exclude={"credentials"})
@@ -174,11 +181,12 @@ async def update_credential(
 
 @router.delete("/{credential_id}", response_model=CredentialActionResponse)
 async def delete_credential(
-    credential_id: int,
+    credential_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """删除凭证"""
-    credential = await _get_credential_or_404(db, credential_id)
+    credential = await _get_credential_or_404(db, credential_id, current_user.id)
 
     name = credential.name
     await db.delete(credential)
@@ -195,7 +203,8 @@ async def delete_credential(
 
 @router.post("/{credential_id}/test", response_model=CredentialActionResponse)
 async def test_credential(
-    credential_id: int,
+    credential_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -203,7 +212,7 @@ async def test_credential(
 
     调用平台 API 验证凭证是否有效。
     """
-    credential = await _get_credential_or_404(db, credential_id)
+    credential = await _get_credential_or_404(db, credential_id, current_user.id)
 
     # 解密凭证
     creds = decrypt_credentials(credential.credentials_encrypted)
@@ -237,14 +246,15 @@ async def test_credential(
 
 @router.post("/{credential_id}/set-default", response_model=CredentialActionResponse)
 async def set_default_credential(
-    credential_id: int,
+    credential_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """设置为默认凭证"""
-    credential = await _get_credential_or_404(db, credential_id)
+    credential = await _get_credential_or_404(db, credential_id, current_user.id)
 
     # 取消同平台其他默认凭证
-    await _clear_default_credentials(db, credential.platform)
+    await _clear_default_credentials(db, current_user.id, credential.platform)
 
     credential.is_default = True
     await db.commit()
@@ -266,10 +276,14 @@ async def set_default_credential(
 
 async def _get_credential_or_404(
     db: AsyncSession,
-    credential_id: int,
+    credential_id: str,
+    user_id: str,
 ) -> AccountCredential:
     """获取凭证或抛出 404 异常"""
-    stmt = select(AccountCredential).where(AccountCredential.id == credential_id)
+    stmt = select(AccountCredential).where(
+        AccountCredential.id == credential_id,
+        AccountCredential.user_id == user_id,
+    )
     result = await db.execute(stmt)
     credential = result.scalar_one_or_none()
 
@@ -281,10 +295,12 @@ async def _get_credential_or_404(
 
 async def _clear_default_credentials(
     db: AsyncSession,
+    user_id: str,
     platform: Platform,
 ) -> None:
     """取消指定平台的所有默认凭证"""
     stmt = select(AccountCredential).where(
+        AccountCredential.user_id == user_id,
         AccountCredential.platform == platform,
         AccountCredential.is_default == True,  # noqa: E712
     )

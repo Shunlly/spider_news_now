@@ -21,8 +21,11 @@ import { preloadOnIdle } from '@/utils/preload';
 
 // 路由懒加载 - 代码分割
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const NewsPage = lazy(() => import('./pages/NewsPage'));
+const DataPoolPage = lazy(() => import('./pages/DataPoolPage'));
 const SocialPage = lazy(() => import('./pages/SocialPage'));
 const TelegramPage = lazy(() => import('./pages/TelegramPage'));
 const TwitterPage = lazy(() => import('./pages/TwitterPage'));
@@ -30,11 +33,17 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
+// 管理页面懒加载
+const TenantManagePage = lazy(() => import('./pages/admin/TenantManagePage'));
+const UserManagePage = lazy(() => import('./pages/admin/UserManagePage'));
+const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'));
+const SystemMonitorPage = lazy(() => import('./pages/admin/SystemMonitorPage'));
+
 // 页面加载 Loading 组件
 function PageLoading() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
-      <Loader2 className="w-8 h-8 animate-spin text-stone-400" />
+      <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
     </div>
   );
 }
@@ -76,8 +85,9 @@ function AppContent() {
   return (
     <Suspense fallback={<PageLoading />}>
       <Routes>
-        {/* 登录页面（公开） */}
+        {/* 登录和注册页面（公开） */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
         {/* 受保护的路由 */}
         <Route
@@ -90,12 +100,21 @@ function AppContent() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="data-pool" element={<DataPoolPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="social" element={<SocialPage />} />
           <Route path="telegram" element={<TelegramPage />} />
           <Route path="twitter" element={<TwitterPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+
+          {/* 管理页面 */}
+          <Route path="admin" element={<Navigate to="/admin/system" replace />} />
+          <Route path="admin/tenants" element={<TenantManagePage />} />
+          <Route path="admin/users" element={<UserManagePage />} />
+          <Route path="admin/audit-logs" element={<AuditLogPage />} />
+          <Route path="admin/system" element={<SystemMonitorPage />} />
         </Route>
 
         {/* 404 页面 */}

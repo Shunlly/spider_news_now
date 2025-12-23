@@ -1,0 +1,1102 @@
+openapi: 3.0.3
+info:
+  title: 全栈爬虫 SaaS 平台 API
+  description: |
+    多租户爬虫 SaaS 平台的 RESTful API 规范。
+
+    ## 认证
+    所有需要认证的端点使用 Bearer Token (JWT) 认证。
+    在请求头中添加: `Authorization: Bearer <access_token>`
+
+    ## 多租户
+    普通用户只能访问自己租户的数据。
+    超级管理员可以通过 `X-Tenant-ID` 请求头访问指定租户数据。
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Auth
+    description: 认证相关接口
+  - name: Users
+    description: 用户管理
+  - name: Tasks
+    description: 采集任务管理
+  - name: News
+    description: 新闻数据查询
+  - name: Social
+    description: 社交媒体数据查询
+  - name: Search
+    description: 全文检索
+  - name: Dashboard
+    description: Dashboard 统计
+  - name: Admin
+    description: 管理员接口
+  - name: Health
+    description: 健康检查
+
+paths:
+  # ==================== Auth ====================
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: 邮箱已存在
+        '429':
+          $ref: '#/components/responses/CaptchaCooldown'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: 凭证无效
+        '429':
+          $ref: '#/components/responses/CaptchaCooldown'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 刷新 Token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /auth/verify-email/{token}:
+    get:
+      tags: [Auth]
+      summary: 验证邮箱
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 验证成功
+        '400':
+          description: Token 无效或已过期
+
+  /auth/captcha:
+    get:
+      tags: [Auth]
+      summary: 获取滑块验证码
+      responses:
+        '200':
+          description: 验证码数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptchaResponse'
+
+  /auth/captcha/verify:
+    post:
+      tags: [Auth]
+      summary: 验证滑块验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptchaVerifyRequest'
+      responses:
+        '200':
+          description: 验证成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: 验证通过的 token (用于注册/登录)
+        '400':
+          description: 验证失败
+        '429':
+          $ref: '#/components/responses/CaptchaCooldown'
+
+  # ==================== Users ====================
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 获取当前用户信息
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+
+  /users/me/quota:
+    get:
+      tags: [Users]
+      summary: 获取当前用户配额
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 配额信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaResponse'
+
+  # ==================== Tasks ====================
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: 获取采集任务列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+        - name: task_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskType'
+      responses:
+        '200':
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+
+    post:
+      tags: [Tasks]
+      summary: 创建采集任务
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          description: 配额不足
+
+  /tasks/{task_id}:
+    get:
+      tags: [Tasks]
+      summary: 获取任务详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      responses:
+        '200':
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetailResponse'
+        '404':
+          description: 任务不存在
+
+    delete:
+      tags: [Tasks]
+      summary: 删除任务
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      responses:
+        '204':
+          description: 删除成功
+        '403':
+          description: 无权删除
+        '404':
+          description: 任务不存在
+
+  /tasks/{task_id}/run:
+    post:
+      tags: [Tasks]
+      summary: 启动任务
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      responses:
+        '200':
+          description: 启动成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '403':
+          description: 配额不足或并发限制
+        '409':
+          description: 任务已在运行
+
+  /tasks/{task_id}/cancel:
+    post:
+      tags: [Tasks]
+      summary: 取消任务
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskIdParam'
+      responses:
+        '200':
+          description: 取消成功
+        '409':
+          description: 任务无法取消
+
+  # ==================== News ====================
+  /news:
+    get:
+      tags: [News]
+      summary: 获取新闻列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 新闻列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsListResponse'
+
+  /news/{news_id}:
+    get:
+      tags: [News]
+      summary: 获取新闻详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: news_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 新闻详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsDetailResponse'
+
+  /news/export:
+    post:
+      tags: [News]
+      summary: 导出新闻数据
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: 导出任务创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url:
+                    type: string
+                    description: 下载链接 (预签名 URL)
+                  expires_at:
+                    type: string
+                    format: date-time
+
+  # ==================== Social ====================
+  /social/sessions:
+    get:
+      tags: [Social]
+      summary: 获取社交会话列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: platform
+          in: query
+          schema:
+            $ref: '#/components/schemas/SocialPlatform'
+      responses:
+        '200':
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialSessionListResponse'
+
+  /social/sessions/{session_id}:
+    get:
+      tags: [Social]
+      summary: 获取会话详情 (含消息)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 会话详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialSessionDetailResponse'
+
+  # ==================== Search ====================
+  /search:
+    get:
+      tags: [Search]
+      summary: 全文检索
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 搜索关键词
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [news, social, all]
+            default: all
+      responses:
+        '200':
+          description: 搜索结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+  # ==================== Dashboard ====================
+  /dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: 获取 Dashboard 统计数据
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 统计数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+
+  /dashboard/ws:
+    get:
+      tags: [Dashboard]
+      summary: WebSocket 实时数据推送
+      description: |
+        WebSocket 连接端点，用于实时推送 Dashboard 数据更新。
+        连接时需要在 URL 参数中携带 token: `/api/v1/dashboard/ws?token=<access_token>`
+      responses:
+        '101':
+          description: WebSocket 升级成功
+
+  # ==================== Admin ====================
+  /admin/tenants:
+    get:
+      tags: [Admin]
+      summary: 获取所有租户 (超级管理员)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 租户列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantResponse'
+        '403':
+          description: 权限不足
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: 获取所有用户 (超级管理员)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 用户列表
+
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: 查询审计日志
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 审计日志列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+
+  # ==================== Health ====================
+  /health:
+    get:
+      tags: [Health]
+      summary: 健康检查
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  version:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [up, down]
+                      redis:
+                        type: string
+                        enum: [up, down]
+                      meilisearch:
+                        type: string
+                        enum: [up, down]
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    TaskIdParam:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    ValidationError:
+      description: 请求参数验证失败
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    loc:
+                      type: array
+                      items:
+                        type: string
+                    msg:
+                      type: string
+                    type:
+                      type: string
+    CaptchaCooldown:
+      description: 验证码冷却中
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: 验证码冷却中，请60秒后重试
+              cooldown_seconds:
+                type: integer
+                example: 60
+
+  schemas:
+    # ==================== Auth Schemas ====================
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - captcha_token
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        captcha_token:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+        - captcha_token
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        captcha_token:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+        expires_in:
+          type: integer
+          description: Token 过期时间 (秒)
+
+    CaptchaResponse:
+      type: object
+      properties:
+        captcha_id:
+          type: string
+        background_image:
+          type: string
+          format: uri
+        slider_image:
+          type: string
+          format: uri
+        target_position:
+          type: number
+          description: 目标位置百分比 (0-100)
+
+    CaptchaVerifyRequest:
+      type: object
+      required:
+        - captcha_id
+        - position
+      properties:
+        captcha_id:
+          type: string
+        position:
+          type: number
+          description: 用户拖动到的位置百分比
+
+    # ==================== User Schemas ====================
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        is_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResponse'
+        - type: object
+          properties:
+            tenant_id:
+              type: integer
+            role:
+              type: string
+            quota_tier:
+              type: string
+            last_login_at:
+              type: string
+              format: date-time
+
+    QuotaResponse:
+      type: object
+      properties:
+        daily_limit:
+          type: integer
+        daily_used:
+          type: integer
+        daily_remaining:
+          type: integer
+        concurrent_limit:
+          type: integer
+        concurrent_used:
+          type: integer
+        reset_at:
+          type: string
+          format: date-time
+        warning:
+          type: boolean
+          description: 配额剩余不足10%时为 true
+
+    # ==================== Task Schemas ====================
+    TaskType:
+      type: string
+      enum: [news, twitter, telegram]
+
+    TaskStatus:
+      type: string
+      enum: [pending, running, completed, failed, cancelled]
+
+    TaskCreateRequest:
+      type: object
+      required:
+        - task_type
+        - target_url
+      properties:
+        task_type:
+          $ref: '#/components/schemas/TaskType'
+        target_url:
+          type: string
+          format: uri
+        config:
+          type: object
+          description: 任务配置 (如分页深度)
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        task_type:
+          $ref: '#/components/schemas/TaskType'
+        target_url:
+          type: string
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        created_at:
+          type: string
+          format: date-time
+
+    TaskDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/TaskResponse'
+        - type: object
+          properties:
+            config:
+              type: object
+            progress:
+              type: object
+              properties:
+                total:
+                  type: integer
+                completed:
+                  type: integer
+                failed:
+                  type: integer
+            error_message:
+              type: string
+            started_at:
+              type: string
+              format: date-time
+            completed_at:
+              type: string
+              format: date-time
+
+    TaskListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # ==================== News Schemas ====================
+    NewsResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        summary:
+          type: string
+        source:
+          type: string
+        source_url:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    NewsDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/NewsResponse'
+        - type: object
+          properties:
+            content:
+              type: string
+            author:
+              type: string
+
+    NewsListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NewsResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [csv, json, excel]
+          default: csv
+        ids:
+          type: array
+          items:
+            type: integer
+          description: 指定导出的记录 ID (可选)
+        filters:
+          type: object
+          description: 筛选条件
+
+    # ==================== Social Schemas ====================
+    SocialPlatform:
+      type: string
+      enum: [twitter, telegram]
+
+    SocialSessionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        platform:
+          $ref: '#/components/schemas/SocialPlatform'
+        thread_id:
+          type: string
+        title:
+          type: string
+        message_count:
+          type: integer
+        first_message_at:
+          type: string
+          format: date-time
+        last_message_at:
+          type: string
+          format: date-time
+
+    SocialMessageResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        sender_name:
+          type: string
+        sender_username:
+          type: string
+        content:
+          type: string
+        media_urls:
+          type: array
+          items:
+            type: string
+        sent_at:
+          type: string
+          format: date-time
+        parent_id:
+          type: integer
+        quoted_id:
+          type: integer
+
+    SocialSessionDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/SocialSessionResponse'
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/SocialMessageResponse'
+
+    SocialSessionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialSessionResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # ==================== Search Schemas ====================
+    SearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        total:
+          type: integer
+        took_ms:
+          type: integer
+          description: 搜索耗时 (毫秒)
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [news, social]
+              id:
+                type: integer
+              title:
+                type: string
+              snippet:
+                type: string
+                description: 匹配片段 (高亮)
+              source:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+
+    # ==================== Dashboard Schemas ====================
+    DashboardStats:
+      type: object
+      properties:
+        today_scraped:
+          type: integer
+          description: 今日采集数
+        success_rate:
+          type: number
+          description: 成功率 (0-1)
+        active_tasks:
+          type: integer
+          description: 活跃任务数
+        quota_used_percent:
+          type: number
+          description: 配额使用百分比
+        recent_activity:
+          type: array
+          items:
+            type: object
+            properties:
+              time:
+                type: string
+                format: date-time
+              action:
+                type: string
+              detail:
+                type: string
+        trends:
+          type: object
+          properties:
+            labels:
+              type: array
+              items:
+                type: string
+            data:
+              type: array
+              items:
+                type: integer
+
+    # ==================== Admin Schemas ====================
+    TenantResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        user_count:
+          type: integer
+        quota_config:
+          type: object
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        user_email:
+          type: string
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+        ip_address:
+          type: string
+        details:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer

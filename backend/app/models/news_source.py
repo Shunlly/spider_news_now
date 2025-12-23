@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -77,10 +77,10 @@ class NewsSource(Base):
 
     # Relationships
     owner: Mapped["User"] = relationship("User", back_populates="news_sources")
-    articles: Mapped[List["NewsArticle"]] = relationship(
+    articles: Mapped[list["NewsArticle"]] = relationship(
         "NewsArticle", back_populates="source"
     )
-    runs: Mapped[List["ScraperRun"]] = relationship(
+    runs: Mapped[list["ScraperRun"]] = relationship(
         "ScraperRun", back_populates="source"
     )
 

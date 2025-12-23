@@ -1,6 +1,8 @@
 /**
- * Stone Dropdown 组件
- * Stone-themed Dropdown Component
+ * HUD 风格 Dropdown 组件
+ * HUD-style Dropdown Component
+ *
+ * 深色主题 + 发光效果
  */
 
 import { useState, useRef, useEffect, ReactNode } from 'react'
@@ -51,7 +53,8 @@ export function StoneDropdown({
         <div
           className={clsx(
             'absolute z-50 mt-2 min-w-[160px] py-1',
-            'bg-white border border-stone-200 rounded-xl shadow-stone-md',
+            'bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-lg',
+            'shadow-[0_0_20px_rgba(0,0,0,0.5)]',
             'animate-fade-in-up',
             position === 'bottom-left' && 'left-0',
             position === 'bottom-right' && 'right-0'
@@ -59,7 +62,7 @@ export function StoneDropdown({
         >
           {items.map((item) =>
             item.divider ? (
-              <div key={item.key} className="my-1 border-t border-stone-100" />
+              <div key={item.key} className="my-1 border-t border-slate-700/50" />
             ) : (
               <button
                 key={item.key}
@@ -71,8 +74,8 @@ export function StoneDropdown({
                   'w-full flex items-center gap-2 px-4 py-2 text-sm text-left',
                   'transition-colors',
                   item.danger
-                    ? 'text-red-600 hover:bg-red-50'
-                    : 'text-stone-700 hover:bg-stone-50'
+                    ? 'text-red-400 hover:bg-red-500/20'
+                    : 'text-slate-300 hover:bg-slate-800/50 hover:text-cyan-400'
                 )}
               >
                 {item.icon && <span className="w-4 h-4">{item.icon}</span>}

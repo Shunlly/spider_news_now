@@ -74,14 +74,14 @@ jobs:
         id: repo
         run: echo "name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
-      - name: Copy docker-compose file to server
+      - name: Copy deployment files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,docker/"
           target: ${{ secrets.DEPLOY_PATH || '/opt/app/spider_news_now' }}
 
       - name: Deploy to 1Panel Server
@@ -109,13 +109,21 @@ jobs:
           LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
           WORKERS: ${{ secrets.WORKERS }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          # Monitoring
+          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
+          FRONTEND_PORT: ${{ secrets.FRONTEND_PORT }}
+          PROMETHEUS_PORT: ${{ secrets.PROMETHEUS_PORT }}
+          GRAFANA_PORT: ${{ secrets.GRAFANA_PORT }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_ROOT_URL: ${{ secrets.GRAFANA_ROOT_URL }}
           CLEAN_DEPLOY: ${{ github.event.inputs.clean_deploy || 'false' }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          envs: REPO_NAME,GHCR_TOKEN,GITHUB_ACTOR,MYSQL_ROOT_PASSWORD,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_PORT,REDIS_PORT,MEILI_MASTER_KEY,MEILI_PORT,RUSTFS_ACCESS_KEY,RUSTFS_SECRET_KEY,RUSTFS_API_PORT,RUSTFS_CONSOLE_PORT,MINIO_BUCKET,SECRET_KEY,FERNET_KEY,LOG_LEVEL,WORKERS,ALLOWED_ORIGINS,CLEAN_DEPLOY
+          envs: REPO_NAME,GHCR_TOKEN,GITHUB_ACTOR,MYSQL_ROOT_PASSWORD,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_PORT,REDIS_PORT,MEILI_MASTER_KEY,MEILI_PORT,RUSTFS_ACCESS_KEY,RUSTFS_SECRET_KEY,RUSTFS_API_PORT,RUSTFS_CONSOLE_PORT,MINIO_BUCKET,SECRET_KEY,FERNET_KEY,LOG_LEVEL,WORKERS,ALLOWED_ORIGINS,BACKEND_PORT,FRONTEND_PORT,PROMETHEUS_PORT,GRAFANA_PORT,GRAFANA_ADMIN_USER,GRAFANA_ADMIN_PASSWORD,GRAFANA_ROOT_URL,CLEAN_DEPLOY
           script: |
             cd ${{ secrets.DEPLOY_PATH || '/opt/app/spider_news_now' }}
 
@@ -141,6 +149,13 @@ jobs:
             LOG_LEVEL=${LOG_LEVEL:-WARNING}
             WORKERS=${WORKERS:-4}
             ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+            BACKEND_PORT=${BACKEND_PORT:-8001}
+            FRONTEND_PORT=${FRONTEND_PORT:-8080}
+            PROMETHEUS_PORT=${PROMETHEUS_PORT:-9090}
+            GRAFANA_PORT=${GRAFANA_PORT:-3000}
+            GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+            GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+            GRAFANA_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3000}
             EOF
             # Remove leading whitespace from .env file
             sed -i 's/^[[:space:]]*//' .env

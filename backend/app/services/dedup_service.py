@@ -16,7 +16,6 @@ Duplicate Detection Service - Redis Bloom Filter + SimHash Implementation
 import hashlib
 import logging
 import re
-from typing import List, Optional, Set, Tuple
 
 import redis.asyncio as redis
 from simhash import Simhash
@@ -43,14 +42,14 @@ class DuplicateService:
     # SimHash 汉明距离阈值（距离 <= 3 被认为是相似内容）
     SIMHASH_THRESHOLD = 3
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         """
         初始化去重服务
 
         Args:
             redis_client: Redis 异步客户端实例，如不提供则自动创建
         """
-        self._redis: Optional[redis.Redis] = redis_client
+        self._redis: redis.Redis | None = redis_client
         self._bloom_initialized = False
 
     async def _get_redis(self) -> redis.Redis:
@@ -159,7 +158,7 @@ class DuplicateService:
         # 生产环境应使用 BF.ADD 命令
         await redis_client.sadd(self.BLOOM_FILTER_KEY, url_hash)
 
-    async def add_many_to_bloom_filter(self, url_hashes: List[str]) -> None:
+    async def add_many_to_bloom_filter(self, url_hashes: list[str]) -> None:
         """
         批量添加 URL 哈希到 Bloom Filter
 
@@ -196,7 +195,7 @@ class DuplicateService:
         # 生产环境应使用 BF.EXISTS 命令
         return await redis_client.sismember(self.BLOOM_FILTER_KEY, url_hash)
 
-    async def check_many_bloom_filter(self, url_hashes: List[str]) -> Set[str]:
+    async def check_many_bloom_filter(self, url_hashes: list[str]) -> set[str]:
         """
         批量检查 URL 哈希是否存在于 Bloom Filter
 
@@ -222,7 +221,7 @@ class DuplicateService:
         # 返回可能存在的哈希
         return {
             url_hash
-            for url_hash, exists in zip(url_hashes, results)
+            for url_hash, exists in zip(url_hashes, results, strict=False)
             if exists
         }
 
@@ -291,8 +290,8 @@ class DuplicateService:
     @staticmethod
     async def get_existing_url_hashes(
         db: AsyncSession,
-        url_hashes: Set[str],
-    ) -> Set[str]:
+        url_hashes: set[str],
+    ) -> set[str]:
         """
         从数据库查询已存在的 URL 哈希
 
@@ -325,8 +324,8 @@ class DuplicateService:
     async def filter_duplicates(
         self,
         db: AsyncSession,
-        articles: List[dict],
-    ) -> Tuple[List[dict], List[dict]]:
+        articles: list[dict],
+    ) -> tuple[list[dict], list[dict]]:
         """
         过滤重复文章（完整去重流程）
 
@@ -353,7 +352,7 @@ class DuplicateService:
         possibly_existing = await self.check_many_bloom_filter(url_hashes)
 
         # 3. 对"可能存在"的哈希查询数据库确认
-        confirmed_existing: Set[str] = set()
+        confirmed_existing: set[str] = set()
         if possibly_existing:
             confirmed_existing = await self.get_existing_url_hashes(
                 db, possibly_existing
@@ -394,7 +393,7 @@ class DuplicateService:
 
 
 # 全局单例实例
-_dedup_service: Optional[DuplicateService] = None
+_dedup_service: DuplicateService | None = None
 
 
 def get_dedup_service() -> DuplicateService:

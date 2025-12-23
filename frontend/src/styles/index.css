@@ -1,8 +1,8 @@
 /**
- * 全局样式
- * Global Styles
+ * HUD 风格全局样式
+ * HUD-style Global Styles
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 @tailwind base;
@@ -25,118 +25,118 @@
   }
 
   body {
-    @apply min-h-screen bg-stone-200;
+    @apply min-h-screen bg-slate-950;
   }
 
-  /* 自定义滚动条 - Stone 风格 */
+  /* 自定义滚动条 - HUD 风格 */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-stone-100;
+    @apply bg-slate-900;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-stone-300 rounded-full;
+    @apply bg-slate-700 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-stone-400;
+    @apply bg-cyan-500/50;
   }
 }
 
-/* Stone 组件样式 */
+/* HUD 组件样式 */
 @layer components {
-  /* Stone 卡片 */
+  /* HUD 卡片 */
   .stone-card {
     @apply relative overflow-hidden;
-    @apply bg-white;
-    @apply border border-stone-200;
+    @apply bg-slate-900/50 backdrop-blur-sm;
+    @apply border border-slate-700/50;
     @apply rounded-xl;
-    @apply shadow-stone-sm;
     @apply transition-all duration-300;
   }
 
   .stone-card:hover {
-    @apply border-stone-300;
-    @apply shadow-stone-md;
+    @apply border-cyan-500/30;
+    @apply shadow-[0_0_15px_rgba(6,182,212,0.1)];
   }
 
-  /* Stone 按钮 - 主要 */
+  /* HUD 按钮 - 主要 */
   .stone-button {
     @apply px-4 py-2;
-    @apply bg-stone-900 text-white;
+    @apply bg-cyan-500/20 text-cyan-400;
+    @apply border border-cyan-500/50;
     @apply rounded-xl;
     @apply font-medium text-sm;
     @apply transition-all duration-200;
     @apply cursor-pointer;
-    @apply hover:bg-stone-800;
-    @apply hover:shadow-stone-md;
+    @apply hover:bg-cyan-500/30;
+    @apply hover:shadow-[0_0_15px_rgba(6,182,212,0.3)];
     @apply hover:-translate-y-0.5;
     @apply active:scale-95;
     @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0;
   }
 
-  /* Stone 按钮 - 次要 */
+  /* HUD 按钮 - 次要 */
   .stone-button-secondary {
     @apply px-4 py-2;
-    @apply bg-white text-stone-700;
-    @apply border border-stone-200;
+    @apply bg-slate-800/50 text-slate-300;
+    @apply border border-slate-700/50;
     @apply rounded-xl;
     @apply font-medium text-sm;
     @apply transition-all duration-200;
     @apply cursor-pointer;
-    @apply hover:border-stone-300;
-    @apply hover:bg-stone-50;
+    @apply hover:border-slate-600;
+    @apply hover:bg-slate-800/70;
+    @apply hover:text-slate-200;
     @apply active:scale-95;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Stone 按钮 - 幽灵 */
+  /* HUD 按钮 - 幽灵 */
   .stone-button-ghost {
     @apply px-4 py-2;
-    @apply bg-transparent text-stone-600;
+    @apply bg-transparent text-slate-400;
     @apply rounded-xl;
     @apply font-medium text-sm;
     @apply transition-all duration-200;
     @apply cursor-pointer;
-    @apply hover:bg-stone-100;
-    @apply hover:text-stone-900;
+    @apply hover:bg-slate-800/50;
+    @apply hover:text-cyan-400;
     @apply active:scale-95;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Stone 输入框 */
+  /* HUD 输入框 */
   .stone-input {
     @apply w-full px-4 py-2;
-    @apply bg-white;
-    @apply border border-stone-200;
+    @apply bg-slate-800/50;
+    @apply border border-slate-700/50;
     @apply rounded-xl;
-    @apply text-stone-900 placeholder-stone-400;
+    @apply text-slate-200 placeholder-slate-500;
     @apply outline-none;
     @apply transition-all duration-200;
-    @apply focus:border-stone-400;
-    @apply focus:ring-2 focus:ring-stone-200;
+    @apply focus:border-cyan-500/50;
+    @apply focus:shadow-[0_0_10px_rgba(6,182,212,0.2)];
   }
 
-  /* Stone 导航栏 */
+  /* HUD 导航栏 */
   .stone-navbar {
     @apply fixed top-0 left-0 right-0 z-50;
     @apply h-16 px-6;
-    @apply bg-white;
-    @apply border-b border-stone-200;
+    @apply bg-slate-900/80 backdrop-blur-xl;
+    @apply border-b border-slate-700/50;
     @apply flex items-center justify-between;
-    @apply shadow-stone-sm;
   }
 
-  /* Stone 侧边栏 */
+  /* HUD 侧边栏 */
   .stone-sidebar {
     @apply fixed left-0 top-16 bottom-0;
     @apply w-64 p-4;
-    @apply bg-stone-50;
-    @apply border-r border-stone-200;
+    @apply bg-slate-900/50 backdrop-blur-sm;
+    @apply border-r border-slate-700/50;
     @apply overflow-y-auto;
   }
 
@@ -164,14 +164,14 @@
     @apply row-span-2;
   }
 
-  /* 统计数字 */
+  /* 统计数字 - HUD 风格 */
   .stat-number {
-    @apply text-3xl font-bold text-stone-900;
+    @apply text-3xl font-bold text-slate-100 font-mono;
     @apply tabular-nums;
   }
 
   .stat-label {
-    @apply text-sm text-stone-500;
+    @apply text-sm text-slate-400;
     @apply mt-1;
   }
 
@@ -181,37 +181,40 @@
   }
 
   .status-dot-active {
-    @apply bg-green-500;
+    @apply bg-emerald-500;
     @apply animate-pulse;
+    @apply shadow-[0_0_8px_rgba(16,185,129,0.5)];
   }
 
   .status-dot-warning {
     @apply bg-yellow-500;
+    @apply shadow-[0_0_8px_rgba(234,179,8,0.5)];
   }
 
   .status-dot-error {
     @apply bg-red-500;
+    @apply shadow-[0_0_8px_rgba(239,68,68,0.5)];
   }
 
   .status-dot-idle {
-    @apply bg-stone-400;
+    @apply bg-slate-500;
   }
 
-  /* 链接卡片样式（参考设计） */
+  /* 链接卡片样式 - HUD 风格 */
   .link-card {
     @apply flex items-center justify-between;
-    @apply p-1 bg-white;
-    @apply border border-stone-200 rounded-xl;
-    @apply hover:border-stone-300 hover:shadow-stone-sm;
+    @apply p-1 bg-slate-900/50;
+    @apply border border-slate-700/50 rounded-xl;
+    @apply hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(6,182,212,0.1)];
     @apply transition-all duration-200;
     @apply cursor-pointer;
   }
 
   .link-card-icon {
     @apply w-10 h-10 rounded-lg;
-    @apply bg-stone-50 border border-stone-100;
+    @apply bg-slate-800/50 border border-slate-700/50;
     @apply flex items-center justify-center;
-    @apply text-stone-700;
+    @apply text-cyan-400;
     @apply group-hover:scale-105 transition-transform;
   }
 }

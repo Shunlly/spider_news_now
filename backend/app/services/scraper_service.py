@@ -2,9 +2,9 @@
 
 import importlib
 from datetime import datetime
-from typing import Optional
+from typing import Any
 
-from sqlalchemy import update, select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -12,7 +12,8 @@ from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource
 from app.models.scraper_run import ScraperRun
 from app.services.duplicate_service import DuplicateService
-from app.services.search_service import get_search_service
+from app.services.news_service import NewsService
+from app.tasks.search_tasks import index_documents_async
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,7 @@ class ScraperService:
     }
 
     @staticmethod
-    async def load_scraper(source_key: str, scraper_module: str):
+    async def load_scraper(source_key: str, scraper_module: str) -> Any:
         """
         Dynamically load a scraper class.
 
@@ -75,8 +76,9 @@ class ScraperService:
     async def run_scraper(
         db: AsyncSession,
         source_key: str,
-        user_id: Optional[str] = None
-    ) -> Optional[int]:
+        user_id: str | None = None,
+        tenant_id: int | None = None,
+    ) -> int | None:
         """
         Execute a scraper and save results to database.
 
@@ -84,6 +86,7 @@ class ScraperService:
             db: Database session
             source_key: Source identifier to scrape
             user_id: User ID for data ownership (defaults to system user)
+            tenant_id: Tenant ID for multi-tenant isolation
 
         Returns:
             ScraperRun ID if successful, None if failed
@@ -93,9 +96,10 @@ class ScraperService:
             2. Create ScraperRun record (status=running)
             3. Load and execute scraper
             4. Filter duplicates
-            5. Insert new articles
-            6. Update ScraperRun with statistics
-            7. Update NewsSource status
+            5. Insert new articles (with tenant info)
+            6. Index articles to Meilisearch (with tenant info)
+            7. Update ScraperRun with statistics
+            8. Update NewsSource status
         """
         # 使用系统用户作为默认值
         if user_id is None:
@@ -181,48 +185,86 @@ class ScraperService:
                 await db.commit()
                 logger.info(f"Updated {content_updated} existing articles with content")
 
-            # Step 5: Insert new articles (逐个插入，跳过重复)
+            # Step 5: Insert new articles (批量插入优化)
+            # 性能优化：分批提交，减少数据库 I/O
+            # 原实现: N 次 commit (N = 文章数)
+            # 优化后: ceil(N / BATCH_SIZE) 次 commit
+            BATCH_SIZE = 50  # 每批处理数量
             inserted_count = 0
             inserted_articles = []
-            if new_articles:
-                for article_data in new_articles:
-                    try:
-                        # 添加 user_id 到文章数据
-                        article_data["user_id"] = user_id
-                        article_model = NewsArticle(**article_data)
-                        db.add(article_model)
-                        await db.commit()
-                        await db.refresh(article_model)
-                        inserted_count += 1
-                        inserted_articles.append(article_model)
-                    except Exception as insert_e:
-                        await db.rollback()
-                        if "Duplicate entry" in str(insert_e):
-                            logger.debug(f"Skipping duplicate article: {article_data.get('title', 'Unknown')[:30]}")
-                        else:
-                            logger.warning(f"Failed to insert article: {insert_e}")
-                        continue
 
-                logger.info(f"Inserted {inserted_count} new articles")
+            if new_articles:
+                # 预处理：添加 user_id 到所有文章
+                for article_data in new_articles:
+                    article_data["user_id"] = user_id
+
+                # 分批处理
+                for i in range(0, len(new_articles), BATCH_SIZE):
+                    batch = new_articles[i:i + BATCH_SIZE]
+                    batch_models = []
+
+                    for article_data in batch:
+                        try:
+                            article_model = NewsArticle(**article_data)
+                            db.add(article_model)
+                            batch_models.append(article_model)
+                        except Exception as create_e:
+                            logger.warning(f"Failed to create article model: {create_e}")
+                            continue
+
+                    # 批量提交本批次
+                    try:
+                        await db.commit()
+                        # 刷新获取 ID
+                        for model in batch_models:
+                            await db.refresh(model)
+                            inserted_articles.append(model)
+                        inserted_count += len(batch_models)
+                    except Exception as batch_e:
+                        await db.rollback()
+                        # 如果批量失败，尝试逐个插入（处理重复）
+                        error_str = str(batch_e)
+                        if "Duplicate entry" in error_str:
+                            logger.debug("Batch has duplicates, falling back to individual insert")
+                            for article_data in batch:
+                                try:
+                                    article_model = NewsArticle(**article_data)
+                                    db.add(article_model)
+                                    await db.commit()
+                                    await db.refresh(article_model)
+                                    inserted_count += 1
+                                    inserted_articles.append(article_model)
+                                except Exception as single_e:
+                                    await db.rollback()
+                                    if "Duplicate entry" not in str(single_e):
+                                        logger.warning(f"Failed to insert article: {single_e}")
+                        else:
+                            logger.error(f"Batch insert failed: {batch_e}")
+
+                logger.info(f"Inserted {inserted_count} new articles (batch optimized)")
 
                 # 批量索引到 Meilisearch（在插入循环外）
+                # 使用 index_documents_async: 根据配置自动选择同步或 Celery 异步模式
                 if inserted_articles:
                     try:
-                        search_service = get_search_service()
+                        from app.core.config import settings
                         index_docs = [{
                             "id": m.id,
                             "title": m.title,
                             "url": m.url,
                             "source_key": m.source_key,
                             "category": m.category,
-                            "content": m.content_text,
+                            "content": m.content_text[:settings.MEILISEARCH_CONTENT_MAX_LENGTH] if m.content_text else None,
                             "published_at": m.published_at,
                             "created_at": m.created_at,
+                            # 多租户隔离字段
+                            "user_id": m.user_id,
+                            "tenant_id": str(tenant_id) if tenant_id else None,
                         } for m in inserted_articles]
-                        await search_service.index_documents(index_docs)
-                        logger.info(f"Indexed {len(index_docs)} articles to Meilisearch")
+                        task_id = index_documents_async(index_docs)
+                        logger.info(f"Queued {len(index_docs)} articles for Meilisearch indexing, task_id: {task_id}")
                     except Exception as search_e:
-                        logger.warning(f"Failed to index articles to Meilisearch: {search_e}")
+                        logger.warning(f"Failed to queue articles for Meilisearch: {search_e}")
 
             # Step 6: Update ScraperRun with statistics
             end_time = datetime.now()
@@ -264,6 +306,10 @@ class ScraperService:
                     "duration": duration,
                 },
             )
+
+            # 使统计缓存失效（新文章已插入）
+            if inserted_count > 0:
+                await NewsService.invalidate_statistics_cache(user_id=None)
 
             return scraper_run.id
 

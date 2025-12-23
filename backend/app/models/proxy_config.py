@@ -11,12 +11,11 @@ Proxy Configuration Model - Proxy Pool Management
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Enum as SQLEnum,
     Float,
     ForeignKey,
     Index,
@@ -24,6 +23,9 @@ from sqlalchemy import (
     String,
     Text,
     func,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -102,11 +104,11 @@ class ProxyConfig(Base):
     )
 
     # 认证信息（可选）
-    username: Mapped[Optional[str]] = mapped_column(
+    username: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="认证用户名"
     )
-    password_encrypted: Mapped[Optional[str]] = mapped_column(
+    password_encrypted: Mapped[str | None] = mapped_column(
         String(255), nullable=True,
         comment="加密的认证密码"
     )
@@ -149,35 +151,35 @@ class ProxyConfig(Base):
     )
 
     # 性能指标
-    avg_response_time: Mapped[Optional[float]] = mapped_column(
+    avg_response_time: Mapped[float | None] = mapped_column(
         Float, nullable=True,
         comment="平均响应时间（毫秒）"
     )
-    last_response_time: Mapped[Optional[float]] = mapped_column(
+    last_response_time: Mapped[float | None] = mapped_column(
         Float, nullable=True,
         comment="最后响应时间（毫秒）"
     )
 
     # 健康检查
-    last_check_at: Mapped[Optional[datetime]] = mapped_column(
+    last_check_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后健康检查时间"
     )
-    last_success_at: Mapped[Optional[datetime]] = mapped_column(
+    last_success_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后成功时间"
     )
-    last_failure_at: Mapped[Optional[datetime]] = mapped_column(
+    last_failure_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后失败时间"
     )
-    last_error_message: Mapped[Optional[str]] = mapped_column(
+    last_error_message: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="最后错误信息"
     )
 
     # 备注
-    notes: Mapped[Optional[str]] = mapped_column(
+    notes: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="备注信息"
     )

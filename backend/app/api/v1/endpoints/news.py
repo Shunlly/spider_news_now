@@ -1,27 +1,27 @@
 """News article API endpoints."""
 
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
+from app.models.news_source import NewsSource
 from app.models.user import User
 from app.schemas.news import (
-    NewsArticleResponse,
-    NewsArticleListResponse,
     NewsArticleDetailResponse,
     NewsArticleGroupedResponse,
+    NewsArticleListResponse,
+    NewsArticleResponse,
     NewsStatisticsResponse,
 )
 from app.schemas.scraper import NewsSourceListResponse
 from app.services.news_service import NewsService
 from app.services.permission_service import apply_user_filter
-from app.models.news_source import NewsSource
-from sqlalchemy import select
 
 logger = get_logger(__name__)
 
@@ -31,11 +31,11 @@ router = APIRouter(prefix="/news", tags=["news"])
 @router.get("/articles", response_model=NewsArticleListResponse)
 async def get_articles(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    source: Optional[str] = Query(None, description="Filter by source key"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    search: Optional[str] = Query(None, description="Search in title"),
-    start_date: Optional[datetime] = Query(None, description="Start date (ISO 8601)"),
-    end_date: Optional[datetime] = Query(None, description="End date (ISO 8601)"),
+    source: str | None = Query(None, description="Filter by source key"),
+    category: str | None = Query(None, description="Filter by category"),
+    search: str | None = Query(None, description="Search in title"),
+    start_date: datetime | None = Query(None, description="Start date (ISO 8601)"),
+    end_date: datetime | None = Query(None, description="End date (ISO 8601)"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=1000, description="Items per page"),
     sort_by: str = Query("published_at", description="Sort field"),
@@ -89,8 +89,8 @@ async def get_articles(
 @router.get("/articles/grouped", response_model=NewsArticleGroupedResponse)
 async def get_articles_grouped(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    category: Optional[str] = Query(None, description="Filter by category"),
-    start_date: Optional[datetime] = Query(None, description="Start date (default: 24h ago)"),
+    category: str | None = Query(None, description="Filter by category"),
+    start_date: datetime | None = Query(None, description="Start date (default: 24h ago)"),
     limit_per_source: int = Query(10, ge=1, le=100, description="Max articles per source"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -145,7 +145,7 @@ async def get_articles_grouped(
 
 @router.get("/articles/{article_id}", response_model=NewsArticleDetailResponse)
 async def get_article(
-    article_id: int,
+    article_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):

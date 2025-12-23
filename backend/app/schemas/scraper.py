@@ -1,9 +1,8 @@
 """Scraper and news source Pydantic schemas."""
 
 from datetime import datetime
-from typing import List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # NewsSource Schemas
@@ -25,10 +24,10 @@ class NewsSourceCreate(NewsSourceBase):
 class NewsSourceResponse(NewsSourceBase):
     """Schema for news source API responses."""
 
-    id: int
+    id: str
     status: str  # idle|running|failed|disabled
-    last_run_at: Optional[datetime]
-    last_success_at: Optional[datetime]
+    last_run_at: datetime | None
+    last_success_at: datetime | None
     failure_count: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -37,7 +36,7 @@ class NewsSourceResponse(NewsSourceBase):
 class NewsSourceListResponse(BaseModel):
     """Schema for list of news sources."""
 
-    sources: List[NewsSourceResponse]
+    sources: list[NewsSourceResponse]
     total: int
 
 
@@ -52,14 +51,14 @@ class ScraperRunBase(BaseModel):
 class ScraperRunResponse(ScraperRunBase):
     """Schema for scraper run API responses."""
 
-    id: int
+    id: str
     started_at: datetime
-    completed_at: Optional[datetime]
+    completed_at: datetime | None
     articles_scraped: int
     articles_new: int
     articles_duplicate: int
-    duration_seconds: Optional[int]
-    error_message: Optional[str]
+    duration_seconds: int | None
+    error_message: str | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,7 +66,7 @@ class ScraperRunResponse(ScraperRunBase):
 class ScraperRunListResponse(BaseModel):
     """Schema for paginated scraper run list."""
 
-    runs: List[ScraperRunResponse]
+    runs: list[ScraperRunResponse]
     total: int
     page: int
     page_size: int
@@ -78,12 +77,12 @@ class RunSummary(BaseModel):
     """Summary of a scraper run."""
 
     started_at: datetime
-    completed_at: Optional[datetime]
+    completed_at: datetime | None
     status: str
     articles_scraped: int
     articles_new: int
     articles_duplicate: int
-    duration_seconds: Optional[int]
+    duration_seconds: int | None
 
 
 class ScraperStatusResponse(BaseModel):
@@ -93,16 +92,16 @@ class ScraperStatusResponse(BaseModel):
     source_name: str
     enabled: bool
     status: str  # idle|running|failed|disabled
-    last_run: Optional[RunSummary]
-    current_run: Optional[RunSummary]
-    next_run_at: Optional[datetime]
+    last_run: RunSummary | None
+    current_run: RunSummary | None
+    next_run_at: datetime | None
     failure_count: int
 
 
 class ScraperStatusListResponse(BaseModel):
     """List of all scraper statuses."""
 
-    scrapers: List[ScraperStatusResponse]
+    scrapers: list[ScraperStatusResponse]
     total_scrapers: int
     active_runs: int
 
@@ -112,7 +111,7 @@ class ScraperTriggerResponse(BaseModel):
     """Response after manually triggering a scraper."""
 
     message: str
-    run_id: int
+    run_id: str
     source_key: str
     started_at: datetime
     status: str
@@ -130,4 +129,4 @@ class ScraperEnableResponse(BaseModel):
     message: str
     source_key: str
     enabled: bool
-    next_run_at: Optional[datetime]
+    next_run_at: datetime | None

@@ -20,11 +20,11 @@ description: "Task list template for feature implementation"
 
 ## Path Conventions
 
-Per Constitution v2.0.0 Development Standards:
+Per Constitution v3.0.0 Development Standards:
 
 - **Web app (mandated)**: `backend/src/`, `frontend/src/`
 - **Backend tests**: `backend/tests/unit/`, `backend/tests/integration/`, `backend/tests/contract/`
-- **Frontend tests**: `frontend/tests/`
+- **Frontend tests**: `frontend/tests/`, `frontend/tests/e2e/` (Playwright)
 - All paths below use this structure
 
 <!-- 

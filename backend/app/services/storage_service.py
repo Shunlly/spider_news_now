@@ -6,7 +6,6 @@ Storage Service Wrapper
 遵循宪法 II.A 适配器模式。
 """
 
-from typing import Optional
 
 from app.core.logging import get_logger
 from app.storage import StorageProvider, get_storage_provider
@@ -22,7 +21,7 @@ class StorageService:
     支持通过配置切换存储后端（MinIO/S3/本地）。
     """
 
-    def __init__(self, provider: Optional[StorageProvider] = None):
+    def __init__(self, provider: StorageProvider | None = None):
         """
         初始化存储服务
 
@@ -122,7 +121,7 @@ class StorageService:
 
 
 # 单例实例
-_storage_service: Optional[StorageService] = None
+_storage_service: StorageService | None = None
 
 
 def get_storage_service() -> StorageService:

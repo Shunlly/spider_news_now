@@ -8,39 +8,42 @@ Telegram API Endpoints
 """
 
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
+from app.db.session import get_db
 from app.models.user import User
-from app.services.telegram_service import get_telegram_service
 from app.schemas.telegram import (
+    TelegramBaseResponse,
+    TelegramConnectRequest,
+    TelegramConnectResponse,
+    TelegramDialogResponse,
+    TelegramDialogsResponse,
+    TelegramEntityResponse,
     TelegramInitRequest,
     TelegramInitResponse,
+    TelegramJoinRequest,
+    TelegramLeaveRequest,
+    TelegramMessageResponse,
+    TelegramMessagesRequest,
+    TelegramMessagesResponse,
+    TelegramSearchPublicRequest,
+    TelegramSearchPublicResponse,
+    TelegramSearchRequest,
+    TelegramSearchResponse,
     TelegramSendCodeRequest,
     TelegramSendCodeResponse,
     TelegramSignInRequest,
     TelegramSignInResponse,
-    TelegramConnectRequest,
-    TelegramConnectResponse,
-    TelegramDialogsResponse,
-    TelegramDialogResponse,
-    TelegramSearchRequest,
-    TelegramSearchResponse,
-    TelegramSearchPublicRequest,
-    TelegramSearchPublicResponse,
-    TelegramEntityResponse,
-    TelegramJoinRequest,
-    TelegramLeaveRequest,
-    TelegramBaseResponse,
-    TelegramMessagesRequest,
-    TelegramMessagesResponse,
-    TelegramMessageResponse,
     TelegramStatusResponse,
     TelegramUserInfo,
 )
+from app.services.quota_service import quota_service
+from app.services.telegram_service import get_telegram_service
 
 logger = get_logger(__name__)
 
@@ -219,7 +222,7 @@ async def get_dialogs(
     current_user: Annotated[User, Depends(get_current_active_user)],
     limit: int = Query(100, ge=1, le=500, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
-    filter_type: Optional[str] = Query(None, description="过滤类型: channel/group/user"),
+    filter_type: str | None = Query(None, description="过滤类型: channel/group/user"),
 ):
     """
     获取已加入的对话列表
@@ -357,61 +360,137 @@ async def get_messages(
     current_user: Annotated[User, Depends(get_current_active_user)],
     limit: int = Query(100, ge=1, le=1000, description="消息数量限制"),
     offset_id: int = Query(0, description="从指定消息 ID 开始获取"),
-    min_date: Optional[datetime] = Query(None, description="最早日期"),
-    max_date: Optional[datetime] = Query(None, description="最晚日期"),
+    min_date: datetime | None = Query(None, description="最早日期"),
+    max_date: datetime | None = Query(None, description="最晚日期"),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     获取频道历史消息
 
     获取指定频道的历史消息。
+    配额控制：每获取的消息计入每日配额。
     """
     service = get_telegram_service()
 
     if not service.is_connected:
         raise HTTPException(status_code=400, detail="未连接，请先登录")
 
-    messages = await service.get_messages(
-        channel_id=channel_id,
-        limit=limit,
-        offset_id=offset_id,
-        min_date=min_date,
-        max_date=max_date,
+    # 配额检查 - Check daily quota
+    has_daily_quota, daily_msg, _ = await quota_service.check_daily_quota(
+        db, current_user.id
     )
+    if not has_daily_quota:
+        raise HTTPException(
+            status_code=429,
+            detail=f"每日配额已用尽: {daily_msg}"
+        )
 
-    return TelegramMessagesResponse(
-        success=True,
-        message="获取成功",
-        messages=[TelegramMessageResponse(**m) for m in messages],
-        total=len(messages),
+    # 配额检查 - Check concurrent quota
+    has_concurrent_quota, concurrent_msg, _ = await quota_service.check_concurrent_quota(
+        db, current_user.id
     )
+    if not has_concurrent_quota:
+        raise HTTPException(
+            status_code=429,
+            detail=f"并发任务数已达上限: {concurrent_msg}"
+        )
+
+    # 获取并发槽位
+    acquired, acquire_msg = await quota_service.acquire_concurrent_slot(db, current_user.id)
+    if not acquired:
+        raise HTTPException(
+            status_code=429,
+            detail=f"无法获取并发槽位: {acquire_msg}"
+        )
+
+    try:
+        messages = await service.get_messages(
+            channel_id=channel_id,
+            limit=limit,
+            offset_id=offset_id,
+            min_date=min_date,
+            max_date=max_date,
+        )
+
+        # 消耗配额（按消息数量）
+        if messages:
+            await quota_service.consume_daily_quota(db, current_user.id, len(messages))
+
+        return TelegramMessagesResponse(
+            success=True,
+            message="获取成功",
+            messages=[TelegramMessageResponse(**m) for m in messages],
+            total=len(messages),
+        )
+    finally:
+        # 释放并发槽位
+        await quota_service.release_concurrent_slot(db, current_user.id)
 
 
 @router.post("/messages", response_model=TelegramMessagesResponse)
 async def get_messages_post(
     request: TelegramMessagesRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    db: AsyncSession = Depends(get_db),
 ):
     """
     获取频道历史消息（POST 方式）
 
     支持更复杂的查询参数。
+    配额控制：每获取的消息计入每日配额。
     """
     service = get_telegram_service()
 
     if not service.is_connected:
         raise HTTPException(status_code=400, detail="未连接，请先登录")
 
-    messages = await service.get_messages(
-        channel_id=request.channel_id,
-        limit=request.limit,
-        offset_id=request.offset_id,
-        min_date=request.min_date,
-        max_date=request.max_date,
+    # 配额检查 - Check daily quota
+    has_daily_quota, daily_msg, _ = await quota_service.check_daily_quota(
+        db, current_user.id
     )
+    if not has_daily_quota:
+        raise HTTPException(
+            status_code=429,
+            detail=f"每日配额已用尽: {daily_msg}"
+        )
 
-    return TelegramMessagesResponse(
-        success=True,
-        message="获取成功",
-        messages=[TelegramMessageResponse(**m) for m in messages],
-        total=len(messages),
+    # 配额检查 - Check concurrent quota
+    has_concurrent_quota, concurrent_msg, _ = await quota_service.check_concurrent_quota(
+        db, current_user.id
     )
+    if not has_concurrent_quota:
+        raise HTTPException(
+            status_code=429,
+            detail=f"并发任务数已达上限: {concurrent_msg}"
+        )
+
+    # 获取并发槽位
+    acquired, acquire_msg = await quota_service.acquire_concurrent_slot(db, current_user.id)
+    if not acquired:
+        raise HTTPException(
+            status_code=429,
+            detail=f"无法获取并发槽位: {acquire_msg}"
+        )
+
+    try:
+        messages = await service.get_messages(
+            channel_id=request.channel_id,
+            limit=request.limit,
+            offset_id=request.offset_id,
+            min_date=request.min_date,
+            max_date=request.max_date,
+        )
+
+        # 消耗配额（按消息数量）
+        if messages:
+            await quota_service.consume_daily_quota(db, current_user.id, len(messages))
+
+        return TelegramMessagesResponse(
+            success=True,
+            message="获取成功",
+            messages=[TelegramMessageResponse(**m) for m in messages],
+            total=len(messages),
+        )
+    finally:
+        # 释放并发槽位
+        await quota_service.release_concurrent_slot(db, current_user.id)

@@ -3,7 +3,7 @@
 Application configuration using Pydantic Settings.
 """
 
-from typing import List, Literal, Optional
+from typing import Literal
 from urllib.parse import quote_plus
 
 from pydantic import MySQLDsn, field_validator, model_validator
@@ -25,12 +25,12 @@ class Settings(BaseSettings):
     # 支持两种方式:
     # 1. 直接设置 DATABASE_URL
     # 2. 设置独立的 DB_* 变量 (会自动构建 URL，正确处理特殊字符)
-    DATABASE_URL: Optional[MySQLDsn] = None
-    DB_HOST: Optional[str] = None
+    DATABASE_URL: MySQLDsn | None = None
+    DB_HOST: str | None = None
     DB_PORT: str = "3306"
-    DB_USER: Optional[str] = None
-    DB_PASSWORD: Optional[str] = None
-    DB_NAME: Optional[str] = None
+    DB_USER: str | None = None
+    DB_PASSWORD: str | None = None
+    DB_NAME: str | None = None
 
     @model_validator(mode="after")
     def build_database_url(self) -> "Settings":
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     @field_validator("ALLOWED_ORIGINS")
     @classmethod
-    def parse_cors_origins(cls, v: str) -> List[str]:
+    def parse_cors_origins(cls, v: str) -> list[str]:
         """解析逗号分隔的 CORS 来源列表"""
         return [origin.strip() for origin in v.split(",")]
 
@@ -73,6 +73,10 @@ class Settings(BaseSettings):
 
     # ========== Redis 配置 (去重和缓存) ==========
     REDIS_URL: str = "redis://localhost:6379/0"
+    # Celery Broker URL (默认与 Redis URL 相同)
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    # Celery Result Backend
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
     # Bloom Filter 配置 - 预期容量 1000 万，误判率 0.1%
     BLOOM_FILTER_CAPACITY: int = 10_000_000
     BLOOM_FILTER_ERROR_RATE: float = 0.001
@@ -80,17 +84,29 @@ class Settings(BaseSettings):
     # ========== Meilisearch 配置 (全文检索) ==========
     MEILISEARCH_URL: str = "http://localhost:7700"
     MEILISEARCH_API_KEY: str = ""
+    # 索引优化配置
+    MEILISEARCH_BATCH_SIZE: int = 1000  # 批量索引大小
+    MEILISEARCH_CONTENT_MAX_LENGTH: int = 5000  # 索引内容最大长度
+    MEILISEARCH_ASYNC_INDEXING: bool = False  # 是否启用 Celery 异步索引
 
     # ========== 存储配置 (对象存储) ==========
     # 存储后端类型: minio, s3, oss, local
     STORAGE_BACKEND: Literal["minio", "s3", "oss", "local"] = "local"
 
-    # MinIO / S3 配置
+    # MinIO / S3 兼容存储配置
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin123"
     MINIO_BUCKET: str = "news-scraper"
     MINIO_SECURE: bool = False
+
+    # AWS S3 专用配置 (当 STORAGE_BACKEND=s3 时使用)
+    # 如果不设置，将回退到 MINIO_* 配置
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_S3_BUCKET: str | None = None
+    AWS_S3_REGION: str = "us-east-1"
+    AWS_S3_ENDPOINT_URL: str | None = None  # 用于 S3 兼容服务（如 MinIO）
 
     # 阿里云 OSS 配置 (可选)
     OSS_ENDPOINT: str = ""
@@ -102,25 +118,25 @@ class Settings(BaseSettings):
     LOCAL_STORAGE_PATH: str = "./storage"
 
     # ========== Twitter API 配置 (可选) ==========
-    TWITTER_API_KEY: Optional[str] = None
-    TWITTER_API_SECRET: Optional[str] = None
-    TWITTER_ACCESS_TOKEN: Optional[str] = None
-    TWITTER_ACCESS_SECRET: Optional[str] = None
-    TWITTER_BEARER_TOKEN: Optional[str] = None
+    TWITTER_API_KEY: str | None = None
+    TWITTER_API_SECRET: str | None = None
+    TWITTER_ACCESS_TOKEN: str | None = None
+    TWITTER_ACCESS_SECRET: str | None = None
+    TWITTER_BEARER_TOKEN: str | None = None
 
     # ========== Telegram 配置 (可选) ==========
-    TELEGRAM_BOT_TOKEN: Optional[str] = None
-    TELEGRAM_API_ID: Optional[str] = None
-    TELEGRAM_API_HASH: Optional[str] = None
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_API_ID: str | None = None
+    TELEGRAM_API_HASH: str | None = None
 
     # ========== 代理配置 (可选) ==========
-    HTTP_PROXY: Optional[str] = None
+    HTTP_PROXY: str | None = None
 
     # ========== 安全配置 ==========
     # 用于凭证加密的密钥 (生产环境必须设置)
     SECRET_KEY: str = "development_secret_key_change_in_production"
     # Fernet 加密密钥 (用于敏感数据加密)
-    FERNET_KEY: Optional[str] = None
+    FERNET_KEY: str | None = None
 
     # ========== JWT 认证配置 ==========
     # JWT 签名算法

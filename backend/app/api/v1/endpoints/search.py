@@ -4,18 +4,21 @@ Full-Text Search API Endpoints
 
 提供基于 Meilisearch 的全文搜索功能。
 遵循宪法 II.B 全文检索要求：响应时间 < 500ms。
+支持多租户数据隔离。
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.news_article import NewsArticle
+from app.models.user import User
 from app.schemas.search import (
     FacetCount,
     FacetDistributionResponse,
@@ -24,6 +27,7 @@ from app.schemas.search import (
     SearchHitResponse,
     SearchResponse,
 )
+from app.services.permission_service import require_admin
 from app.services.search_service import SearchService, get_search_service
 
 logger = get_logger(__name__)
@@ -42,14 +46,15 @@ def get_search() -> SearchService:
 
 @router.get("", response_model=SearchResponse)
 async def search(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     q: str = Query(..., min_length=1, max_length=200, description="搜索关键词"),
     page: int = Query(1, ge=1, description="页码"),
     hits_per_page: int = Query(20, ge=1, le=100, description="每页结果数"),
-    source_key: Optional[str] = Query(None, description="按来源过滤"),
-    category: Optional[str] = Query(None, description="按分类过滤"),
-    start_date: Optional[datetime] = Query(None, description="时间范围起始"),
-    end_date: Optional[datetime] = Query(None, description="时间范围结束"),
-    sort_by: Optional[str] = Query(None, description="排序字段，如 published_at:desc"),
+    source_key: str | None = Query(None, description="按来源过滤"),
+    category: str | None = Query(None, description="按分类过滤"),
+    start_date: datetime | None = Query(None, description="时间范围起始"),
+    end_date: datetime | None = Query(None, description="时间范围结束"),
+    sort_by: str | None = Query(None, description="排序字段，如 published_at:desc"),
     highlight: bool = Query(True, description="是否返回高亮结果"),
     search_service: SearchService = Depends(get_search),
 ):
@@ -61,10 +66,17 @@ async def search(
     - 按来源、分类、时间范围过滤
     - 自定义排序
     - 结果高亮
+    - 多租户数据隔离（自动应用）
 
     响应时间目标：< 500ms
     """
     try:
+        # 多租户隔离：超级管理员可查看所有数据，其他用户仅查看自己/租户数据
+        user_filter = None if current_user.is_super_admin else str(current_user.id)
+        tenant_filter = None if current_user.is_super_admin else (
+            str(current_user.tenant_id) if current_user.tenant_id else None
+        )
+
         result = await search_service.search(
             query=q,
             page=page,
@@ -75,6 +87,8 @@ async def search(
             end_date=end_date,
             sort_by=sort_by,
             highlight=highlight,
+            user_id=user_filter,
+            tenant_id=tenant_filter,
         )
 
         # 转换搜索结果
@@ -84,7 +98,7 @@ async def search(
             formatted = hit.get("_formatted", {})
 
             hits.append(SearchHitResponse(
-                id=hit["id"],
+                id=str(hit["id"]),
                 title=hit["title"],
                 url=hit["url"],
                 source_key=hit["source_key"],
@@ -106,26 +120,34 @@ async def search(
 
     except Exception as e:
         logger.error(f"搜索失败: {e}")
-        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}") from None
 
 
 @router.get("/facets", response_model=SearchResponse)
 async def search_with_facets(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     q: str = Query(..., min_length=1, max_length=200, description="搜索关键词"),
     page: int = Query(1, ge=1, description="页码"),
     hits_per_page: int = Query(20, ge=1, le=100, description="每页结果数"),
-    source_key: Optional[str] = Query(None, description="按来源过滤"),
-    category: Optional[str] = Query(None, description="按分类过滤"),
-    start_date: Optional[datetime] = Query(None, description="时间范围起始"),
-    end_date: Optional[datetime] = Query(None, description="时间范围结束"),
+    source_key: str | None = Query(None, description="按来源过滤"),
+    category: str | None = Query(None, description="按分类过滤"),
+    start_date: datetime | None = Query(None, description="时间范围起始"),
+    end_date: datetime | None = Query(None, description="时间范围结束"),
     search_service: SearchService = Depends(get_search),
 ):
     """
     带分面统计的搜索
 
     返回搜索结果和各维度的分布统计，便于前端实现筛选功能。
+    支持多租户数据隔离（自动应用）。
     """
     try:
+        # 多租户隔离：超级管理员可查看所有数据，其他用户仅查看自己/租户数据
+        user_filter = None if current_user.is_super_admin else str(current_user.id)
+        tenant_filter = None if current_user.is_super_admin else (
+            str(current_user.tenant_id) if current_user.tenant_id else None
+        )
+
         result, facet_dist = await search_service.search_with_facets(
             query=q,
             page=page,
@@ -134,6 +156,8 @@ async def search_with_facets(
             category=category,
             start_date=start_date,
             end_date=end_date,
+            user_id=user_filter,
+            tenant_id=tenant_filter,
         )
 
         # 转换搜索结果
@@ -141,7 +165,7 @@ async def search_with_facets(
         for hit in result["hits"]:
             formatted = hit.get("_formatted", {})
             hits.append(SearchHitResponse(
-                id=hit["id"],
+                id=str(hit["id"]),
                 title=hit["title"],
                 url=hit["url"],
                 source_key=hit["source_key"],
@@ -176,7 +200,7 @@ async def search_with_facets(
 
     except Exception as e:
         logger.error(f"分面搜索失败: {e}")
-        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}") from None
 
 
 # =============================================================
@@ -185,6 +209,7 @@ async def search_with_facets(
 
 @router.get("/index/stats", response_model=IndexStatsResponse)
 async def get_index_stats(
+    admin: Annotated[User, Depends(require_admin)],
     search_service: SearchService = Depends(get_search),
 ):
     """
@@ -204,11 +229,12 @@ async def get_index_stats(
 
     except Exception as e:
         logger.error(f"获取索引统计失败: {e}")
-        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}") from None
 
 
 @router.post("/index/clear", response_model=IndexTaskResponse)
 async def clear_index(
+    admin: Annotated[User, Depends(require_admin)],
     search_service: SearchService = Depends(get_search),
 ):
     """
@@ -227,11 +253,12 @@ async def clear_index(
 
     except Exception as e:
         logger.error(f"清空索引失败: {e}")
-        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"搜索服务错误: {str(e)}") from None
 
 
 @router.post("/index/rebuild", response_model=IndexTaskResponse)
 async def rebuild_index(
+    admin: Annotated[User, Depends(require_admin)],
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     search_service: SearchService = Depends(get_search),
@@ -253,38 +280,95 @@ async def rebuild_index(
 
 
 async def _rebuild_index_background(db: AsyncSession, search_service: SearchService):
-    """后台重建索引"""
+    """
+    后台重建索引（包含多租户信息）
+
+    性能优化：使用分批流式处理，避免一次性加载所有文章到内存
+    - 每批处理 BATCH_SIZE 篇文章
+    - 使用 offset/limit 分页查询
+    - 处理完一批后释放内存再处理下一批
+    """
+    from sqlalchemy import func
+    from sqlalchemy.orm import selectinload
+
     from app.db.session import async_session_maker
+
+    # 每批处理的文章数量（控制内存使用）
+    BATCH_SIZE = 1000
 
     async with async_session_maker() as session:
         try:
-            # 获取所有文章
-            stmt = select(NewsArticle)
-            result = await session.execute(stmt)
-            articles = result.scalars().all()
+            # Step 1: 获取文章总数
+            count_stmt = select(func.count(NewsArticle.id))
+            count_result = await session.execute(count_stmt)
+            total_articles = count_result.scalar() or 0
 
-            logger.info(f"开始重建索引，共 {len(articles)} 篇文章")
-
-            # 准备文档数据
-            documents = []
-            for article in articles:
-                documents.append({
-                    "id": article.id,
-                    "title": article.title,
-                    "url": article.url,
-                    "source_key": article.source_key,
-                    "category": article.category,
-                    "content": article.content_text,
-                    "published_at": article.published_at,
-                    "created_at": article.created_at,
-                })
-
-            # 重建索引
-            if documents:
-                task_id = await search_service.rebuild_index(documents)
-                logger.info(f"索引重建完成，task_id: {task_id}")
-            else:
+            if total_articles == 0:
                 logger.warning("没有文章需要索引")
+                return
+
+            logger.info(f"开始重建索引，共 {total_articles} 篇文章，分批处理（每批 {BATCH_SIZE}）")
+
+            # Step 2: 先清空索引
+            await search_service.clear_index()
+            logger.info("索引已清空，开始分批导入")
+
+            # Step 3: 分批处理
+            total_indexed = 0
+            offset = 0
+
+            while offset < total_articles:
+                # 分批查询（使用 offset/limit 避免一次性加载）
+                stmt = (
+                    select(NewsArticle)
+                    .options(selectinload(NewsArticle.owner))
+                    .order_by(NewsArticle.id)  # 确保顺序一致
+                    .offset(offset)
+                    .limit(BATCH_SIZE)
+                )
+                result = await session.execute(stmt)
+                articles = result.scalars().all()
+
+                if not articles:
+                    break
+
+                # 准备本批文档数据
+                documents = []
+                for article in articles:
+                    documents.append({
+                        "id": article.id,
+                        "title": article.title,
+                        "url": article.url,
+                        "source_key": article.source_key,
+                        "category": article.category,
+                        "content": article.content_text,
+                        "published_at": article.published_at,
+                        "created_at": article.created_at,
+                        # 多租户隔离字段
+                        "user_id": article.user_id,
+                        "tenant_id": str(article.owner.tenant_id) if article.owner and article.owner.tenant_id else None,
+                    })
+
+                # 索引本批文档（index_documents 内部也有分批处理）
+                if documents:
+                    await search_service.index_documents(documents)
+                    total_indexed += len(documents)
+
+                    # 计算进度
+                    progress = min(100, int(total_indexed / total_articles * 100))
+                    logger.info(
+                        f"索引进度: {total_indexed}/{total_articles} ({progress}%), "
+                        f"当前批次: {len(documents)} 篇"
+                    )
+
+                # 移动到下一批
+                offset += BATCH_SIZE
+
+                # 释放本批内存（Python GC 会处理，但显式清理有助于大数据集）
+                del articles
+                del documents
+
+            logger.info(f"索引重建完成，共索引 {total_indexed} 篇文章")
 
         except Exception as e:
             logger.error(f"索引重建失败: {e}", exc_info=True)
@@ -294,7 +378,7 @@ async def _rebuild_index_background(db: AsyncSession, search_service: SearchServ
 # 辅助函数
 # =============================================================
 
-def _timestamp_to_datetime(timestamp: Optional[int]) -> datetime:
+def _timestamp_to_datetime(timestamp: int | None) -> datetime:
     """将 Unix 时间戳转换为 datetime"""
     if timestamp is None:
         return datetime.now()

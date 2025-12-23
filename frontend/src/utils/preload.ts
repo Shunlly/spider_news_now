@@ -8,6 +8,7 @@
 // 路由组件映射
 const routeComponents = {
   dashboard: () => import('../pages/DashboardPage'),
+  'data-pool': () => import('../pages/DataPoolPage'),
   news: () => import('../pages/NewsPage'),
   social: () => import('../pages/SocialPage'),
   telegram: () => import('../pages/TelegramPage'),
@@ -40,12 +41,13 @@ export function preloadAllRoutes() {
 export function preloadOnIdle() {
   if ('requestIdleCallback' in window) {
     requestIdleCallback(() => {
-      preloadRoutes(['dashboard', 'news', 'social'])
+      preloadRoutes(['dashboard', 'data-pool', 'news', 'social'])
     })
   } else {
-    // Fallback for Safari
+    // Fallback for Safari（不支持 requestIdleCallback）
+    // 500ms 后开始预加载，确保主页面已加载完成
     setTimeout(() => {
-      preloadRoutes(['dashboard', 'news', 'social'])
-    }, 2000)
+      preloadRoutes(['dashboard', 'data-pool', 'news', 'social'])
+    }, 500)
   }
 }

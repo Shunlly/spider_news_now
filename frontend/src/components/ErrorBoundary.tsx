@@ -1,8 +1,8 @@
 /**
- * 全局错误边界组件
- * Global Error Boundary Component
+ * HUD 风格全局错误边界组件
+ * HUD-style Global Error Boundary Component
  *
- * 捕获子组件树中的 JavaScript 错误，显示备用 UI
+ * 深色主题 + 发光效果
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react'
@@ -60,30 +60,30 @@ export default class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
 
-      // 默认错误 UI
+      // 默认错误 UI - HUD 风格
       return (
-        <div className="min-h-screen bg-stone-200 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-500" />
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+          <div className="bg-slate-900/50 backdrop-blur-xl rounded-xl border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)] p-8 max-w-md w-full text-center">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+              <AlertTriangle className="w-8 h-8 text-red-400" />
             </div>
 
-            <h1 className="text-xl font-semibold text-stone-900 mb-2">
+            <h1 className="text-xl font-semibold text-slate-100 mb-2">
               出错了
             </h1>
 
-            <p className="text-stone-600 mb-6">
+            <p className="text-slate-400 mb-6">
               应用程序遇到了意外错误。请尝试刷新页面或返回首页。
             </p>
 
             {/* 开发环境显示错误详情 */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mb-6 text-left">
-                <summary className="cursor-pointer text-sm text-stone-500 hover:text-stone-700">
+                <summary className="cursor-pointer text-sm text-slate-500 hover:text-cyan-400 transition-colors">
                   查看错误详情
                 </summary>
-                <div className="mt-2 p-3 bg-stone-100 rounded-lg overflow-auto max-h-40">
-                  <pre className="text-xs text-red-600 whitespace-pre-wrap">
+                <div className="mt-2 p-3 bg-slate-800/50 rounded-lg overflow-auto max-h-40 border border-slate-700/50">
+                  <pre className="text-xs text-red-400 whitespace-pre-wrap font-mono">
                     {this.state.error.toString()}
                     {this.state.errorInfo?.componentStack}
                   </pre>
@@ -126,13 +126,13 @@ export function PageErrorBoundary({ children }: { children: ReactNode }) {
     <ErrorBoundary
       fallback={
         <div className="p-8 text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-6 h-6 text-red-500" />
+          <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
+            <AlertTriangle className="w-6 h-6 text-red-400" />
           </div>
-          <h2 className="text-lg font-medium text-stone-900 mb-2">
+          <h2 className="text-lg font-medium text-slate-100 mb-2">
             页面加载失败
           </h2>
-          <p className="text-stone-600 mb-4">
+          <p className="text-slate-400 mb-4">
             该页面无法正常加载，请稍后重试。
           </p>
           <StoneButton

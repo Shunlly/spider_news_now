@@ -1,13 +1,12 @@
 """Duplicate detection service."""
 
 import hashlib
-from typing import Set
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.news_article import NewsArticle
 from app.core.logging import get_logger
+from app.models.news_article import NewsArticle
 
 logger = get_logger(__name__)
 
@@ -42,8 +41,8 @@ class DuplicateService:
 
     @staticmethod
     async def get_existing_url_hashes(
-        db: AsyncSession, url_hashes: Set[str]
-    ) -> Set[str]:
+        db: AsyncSession, url_hashes: set[str]
+    ) -> set[str]:
         """
         Get set of URL hashes that already exist in database.
 

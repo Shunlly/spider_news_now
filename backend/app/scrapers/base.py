@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from playwright.async_api import async_playwright
 
@@ -41,7 +41,7 @@ class BaseScraper(ABC):
         self.logger = get_logger(f"{__name__}.{source_key}")
 
     @abstractmethod
-    async def scrape(self) -> List[Dict[str, Any]]:
+    async def scrape(self) -> list[dict[str, Any]]:
         """
         Scrape news articles from the source.
 
@@ -60,7 +60,7 @@ class BaseScraper(ABC):
         """
         pass
 
-    def parse(self, raw_article: Dict[str, Any]) -> Dict[str, Any]:
+    def parse(self, raw_article: dict[str, Any]) -> dict[str, Any]:
         """
         Parse and normalize a raw article dictionary.
 
@@ -107,7 +107,7 @@ class BaseScraper(ABC):
             "published_at": published_at,
         }
 
-    def validate(self, article: Dict[str, Any]) -> bool:
+    def validate(self, article: dict[str, Any]) -> bool:
         """
         Validate that an article has all required fields.
 
@@ -190,7 +190,7 @@ class BaseScraper(ABC):
         """
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    async def run(self) -> List[Dict[str, Any]]:
+    async def run(self) -> list[dict[str, Any]]:
         """
         Execute the complete scraping workflow.
 
@@ -265,7 +265,7 @@ class BaseScraper(ABC):
             # Return empty list on failure (graceful degradation)
             return []
 
-    async def _fetch_all_content(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _fetch_all_content(self, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Fetch content for all articles with concurrency control.
         Upload content to MinIO/RustFS storage.
@@ -276,9 +276,10 @@ class BaseScraper(ABC):
         Returns:
             Articles with content_url populated (storage path)
         """
-        from app.services.storage_service import get_storage_service
-        from datetime import datetime
         import re
+        from datetime import datetime
+
+        from app.services.storage_service import get_storage_service
 
         storage_service = get_storage_service()
         semaphore = asyncio.Semaphore(self.CONTENT_FETCH_CONCURRENCY)
@@ -291,7 +292,7 @@ class BaseScraper(ABC):
             text = re.sub(r'\s+', ' ', text).strip()
             return text[:10000]  # Limit for search index
 
-        async def fetch_with_semaphore(article: Dict[str, Any]) -> Dict[str, Any]:
+        async def fetch_with_semaphore(article: dict[str, Any]) -> dict[str, Any]:
             async with semaphore:
                 try:
                     content = await self.fetch_content(article["url"])
@@ -338,7 +339,7 @@ class BaseScraper(ABC):
 
         return fetched_articles
 
-    async def fetch_content(self, url: str) -> Optional[str]:
+    async def fetch_content(self, url: str) -> str | None:
         """
         Fetch article content from URL.
 
@@ -355,7 +356,7 @@ class BaseScraper(ABC):
         """
         return await self._generic_content_fetch(url)
 
-    async def _generic_content_fetch(self, url: str) -> Optional[str]:
+    async def _generic_content_fetch(self, url: str) -> str | None:
         """
         Generic content extraction using common article selectors.
         Extracts HTML content to preserve images.

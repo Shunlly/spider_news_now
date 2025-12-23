@@ -8,7 +8,6 @@ MinIO / S3 Compatible Storage Implementation
 import asyncio
 import logging
 from functools import partial
-from typing import Optional
 
 from minio import Minio
 from minio.error import S3Error
@@ -29,11 +28,11 @@ class MinioStorage(BaseStorageProvider):
 
     def __init__(
         self,
-        endpoint: Optional[str] = None,
-        access_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        bucket: Optional[str] = None,
-        secure: Optional[bool] = None,
+        endpoint: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        bucket: str | None = None,
+        secure: bool | None = None,
     ):
         """
         初始化 MinIO 客户端
@@ -159,7 +158,7 @@ class MinioStorage(BaseStorageProvider):
                 response.release_conn()
         except S3Error as e:
             if e.code == "NoSuchKey":
-                raise FileNotFoundError(f"文件不存在: {key}")
+                raise FileNotFoundError(f"文件不存在: {key}") from None
             logger.error(f"文件下载失败: {key}, 错误: {e}")
             raise
 

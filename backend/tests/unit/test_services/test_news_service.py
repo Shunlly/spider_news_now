@@ -1,11 +1,12 @@
 """Unit tests for news service."""
 
-import pytest
 from datetime import datetime, timedelta
 
-from app.services.news_service import NewsService
+import pytest
+
 from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource
+from app.services.news_service import NewsService
 
 
 @pytest.mark.asyncio

@@ -4,13 +4,14 @@ Integration tests for Social API and workflow.
 Tests the full social data collection workflow including sessions and messages.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.social_session import Platform, SessionStatus, SocialSession, TargetType
 from app.models.social_message import SocialMessage
+from app.models.social_session import Platform, SessionStatus, SocialSession, TargetType
 
 
 @pytest.mark.integration
@@ -18,7 +19,7 @@ class TestSocialWorkflowIntegration:
     """Integration tests for social data workflow."""
 
     @pytest.mark.asyncio
-    async def test_full_session_lifecycle(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_full_session_lifecycle(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test complete session lifecycle: create -> pause -> resume -> delete."""
         # 1. Create session
         session_data = {
@@ -57,10 +58,11 @@ class TestSocialWorkflowIntegration:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_session_with_messages_workflow(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_session_with_messages_workflow(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test session with messages."""
         # Create session directly in DB
         session = SocialSession(
+            user_id=test_user.id,
             session_key="twitter:user:test123",
             platform=Platform.TWITTER,
             target_type=TargetType.USER,
@@ -72,19 +74,20 @@ class TestSocialWorkflowIntegration:
         await db_session.commit()
         await db_session.refresh(session)
 
-        # Add messages
+        # Add messages (platform is stored in session, not message)
         for i in range(5):
             message = SocialMessage(
                 session_id=session.id,
                 message_id=f"msg_{i}",
-                message_hash=f"hash_{i:064d}",
-                platform=Platform.TWITTER,
+                message_hash=f"{i:064d}",  # 64 char hash
                 author_id="author_123",
                 author_name="Author",
                 content=f"Test message {i}",
                 posted_at=datetime.now(),
             )
             db_session.add(message)
+        # Update message count manually (not auto-tracked)
+        session.message_count = 5
         await db_session.commit()
 
         # Get session with message count
@@ -101,7 +104,7 @@ class TestSocialWorkflowIntegration:
         assert stats["total_messages"] == 5
 
     @pytest.mark.asyncio
-    async def test_multi_platform_sessions(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_multi_platform_sessions(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test managing sessions across multiple platforms."""
         # Create Twitter session
         twitter_session = {
@@ -141,7 +144,7 @@ class TestSocialWorkflowIntegration:
         assert telegram_response.json()["data"][0]["platform"] == "telegram"
 
     @pytest.mark.asyncio
-    async def test_session_update_workflow(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_session_update_workflow(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test updating session properties."""
         # Create session
         session_data = {
@@ -170,7 +173,7 @@ class TestSocialWorkflowIntegration:
         assert updated["description"] == "Python hashtag tracking"
 
     @pytest.mark.asyncio
-    async def test_session_key_uniqueness(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_session_key_uniqueness(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test that session keys are unique."""
         session_data = {
             "platform": "twitter",
@@ -189,14 +192,15 @@ class TestSocialWorkflowIntegration:
         assert dup_response.status_code in [200, 400, 409]
 
     @pytest.mark.asyncio
-    async def test_statistics_aggregation(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_statistics_aggregation(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test statistics aggregation across sessions."""
         # Create multiple sessions
         platforms = ["twitter", "telegram", "twitter"]
         statuses = [SessionStatus.ACTIVE, SessionStatus.ACTIVE, SessionStatus.PAUSED]
 
-        for i, (platform, status) in enumerate(zip(platforms, statuses)):
+        for i, (platform, status) in enumerate(zip(platforms, statuses, strict=True)):
             session = SocialSession(
+                user_id=test_user.id,
                 session_key=f"{platform}:user:test{i}",
                 platform=Platform(platform),
                 target_type=TargetType.USER,
@@ -221,9 +225,10 @@ class TestSocialMessageIntegration:
     """Integration tests for social message handling."""
 
     @pytest.fixture
-    async def session_with_messages(self, db_session: AsyncSession):
+    async def session_with_messages(self, db_session: AsyncSession, test_user):
         """Create a session with messages for testing."""
         session = SocialSession(
+            user_id=test_user.id,
             session_key="twitter:user:messages_test",
             platform=Platform.TWITTER,
             target_type=TargetType.USER,
@@ -240,8 +245,7 @@ class TestSocialMessageIntegration:
             msg = SocialMessage(
                 session_id=session.id,
                 message_id=f"tweet_{i}",
-                message_hash=f"hash_{i:064d}",
-                platform=Platform.TWITTER,
+                message_hash=f"tw{i:062d}",  # 64 char hash
                 author_id="author_1",
                 author_name="Test Author",
                 author_username="testauthor",
@@ -257,9 +261,10 @@ class TestSocialMessageIntegration:
         return session, messages
 
     @pytest.mark.asyncio
-    async def test_message_deduplication(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_message_deduplication(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test that duplicate messages are handled correctly."""
         session = SocialSession(
+            user_id=test_user.id,
             session_key="twitter:user:dedup_test",
             platform=Platform.TWITTER,
             target_type=TargetType.USER,
@@ -275,8 +280,7 @@ class TestSocialMessageIntegration:
         msg1 = SocialMessage(
             session_id=session.id,
             message_id="unique_tweet_1",
-            message_hash="unique_hash_" + "0" * 52,
-            platform=Platform.TWITTER,
+            message_hash="a" * 64,  # 64 char hash
             author_id="author",
             author_name="Author",
             content="First tweet",
@@ -289,8 +293,7 @@ class TestSocialMessageIntegration:
         msg2 = SocialMessage(
             session_id=session.id,
             message_id="unique_tweet_2",
-            message_hash="unique_hash_" + "0" * 52,  # Same hash
-            platform=Platform.TWITTER,
+            message_hash="a" * 64,  # Same hash
             author_id="author",
             author_name="Author",
             content="Duplicate tweet",
@@ -310,7 +313,7 @@ class TestSocialMessageIntegration:
         assert session.message_count <= 1
 
     @pytest.mark.asyncio
-    async def test_session_message_count_update(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_session_message_count_update(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test that session message_count is properly tracked."""
         # Create session via API
         session_data = {
@@ -330,8 +333,7 @@ class TestSocialMessageIntegration:
             msg = SocialMessage(
                 session_id=session_id,
                 message_id=f"tg_msg_{i}",
-                message_hash=f"tg_hash_{i:064d}",
-                platform=Platform.TELEGRAM,
+                message_hash=f"tg{i:062d}",  # 64 char hash
                 author_id="tg_author",
                 author_name="TG Author",
                 content=f"Telegram message {i}",

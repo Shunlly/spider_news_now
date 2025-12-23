@@ -14,7 +14,7 @@ class TestCredentialsWorkflowIntegration:
     """Integration tests for credential management."""
 
     @pytest.mark.asyncio
-    async def test_full_credential_lifecycle(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_full_credential_lifecycle(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test complete credential lifecycle: create -> update -> set default -> delete."""
         # 1. Create credential
         credential_data = {
@@ -55,7 +55,7 @@ class TestCredentialsWorkflowIntegration:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_multi_platform_credentials(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_multi_platform_credentials(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test managing credentials across multiple platforms."""
         # Create Twitter credential
         twitter_cred = {
@@ -86,7 +86,7 @@ class TestCredentialsWorkflowIntegration:
         assert twitter_only.json()["data"][0]["platform"] == "twitter"
 
     @pytest.mark.asyncio
-    async def test_default_credential_switching(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_default_credential_switching(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test that setting new default unsets previous default."""
         # Create first credential as default
         cred1 = {
@@ -126,7 +126,7 @@ class TestProxiesWorkflowIntegration:
     """Integration tests for proxy management."""
 
     @pytest.mark.asyncio
-    async def test_full_proxy_lifecycle(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_full_proxy_lifecycle(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test complete proxy lifecycle: create -> update -> disable -> enable -> delete."""
         # 1. Create proxy
         proxy_data = {
@@ -167,7 +167,7 @@ class TestProxiesWorkflowIntegration:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_multi_protocol_proxies(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_multi_protocol_proxies(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test managing proxies with different protocols."""
         protocols = ["http", "https", "socks5"]
 
@@ -193,7 +193,7 @@ class TestProxiesWorkflowIntegration:
         assert http_only.json()["total"] == 1
 
     @pytest.mark.asyncio
-    async def test_proxy_priority_ordering(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_proxy_priority_ordering(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test that proxies are ordered by priority."""
         # Create low priority proxy
         low_priority = {
@@ -225,7 +225,7 @@ class TestProxiesWorkflowIntegration:
         assert data[1]["name"] == "Low Priority"
 
     @pytest.mark.asyncio
-    async def test_proxy_with_authentication(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_proxy_with_authentication(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test proxy with username/password authentication."""
         proxy_data = {
             "name": "Authenticated Proxy",
@@ -244,7 +244,7 @@ class TestProxiesWorkflowIntegration:
         # or should be masked
 
     @pytest.mark.asyncio
-    async def test_enabled_disabled_filtering(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_enabled_disabled_filtering(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test filtering proxies by enabled status."""
         # Create enabled proxy
         enabled_proxy = {

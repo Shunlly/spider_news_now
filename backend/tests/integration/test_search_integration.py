@@ -2,10 +2,12 @@
 Integration tests for Search API endpoints.
 
 Tests the full search workflow with mocked Meilisearch service.
+Includes multi-tenant isolation tests (T182).
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from httpx import AsyncClient
 
 
@@ -160,26 +162,12 @@ class TestSearchIntegration:
             assert len(data["facets"]["category"]) == 2
 
     @pytest.mark.asyncio
-    async def test_search_index_stats(self, client: AsyncClient, mock_search_service):
-        """Test getting index statistics."""
-        mock_search_service.get_index_stats = AsyncMock(return_value={
-            "number_of_documents": 10000,
-            "is_indexing": False,
-            "field_distribution": {
-                "title": 10000,
-                "content": 9500,
-                "source_key": 10000,
-            }
-        })
-
-        with patch("app.api.v1.endpoints.search.get_search_service", return_value=mock_search_service):
-            response = await client.get("/api/v1/search/index/stats")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["number_of_documents"] == 10000
-            assert data["is_indexing"] is False
-            assert "field_distribution" in data
+    async def test_search_index_stats_requires_admin(self, client: AsyncClient, mock_search_service):
+        """Test getting index statistics - requires admin access."""
+        # 索引统计是管理员操作
+        response = await client.get("/api/v1/search/index/stats")
+        # 普通用户应该被拒绝
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_search_empty_query_rejected(self, client: AsyncClient):
@@ -213,17 +201,12 @@ class TestSearchIntegration:
             assert "搜索服务错误" in data["detail"]
 
     @pytest.mark.asyncio
-    async def test_search_clear_index(self, client: AsyncClient, mock_search_service):
-        """Test clearing search index."""
-        mock_search_service.clear_index = AsyncMock(return_value="task_12345")
-
-        with patch("app.api.v1.endpoints.search.get_search_service", return_value=mock_search_service):
-            response = await client.post("/api/v1/search/index/clear")
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["task_id"] == "task_12345"
-            assert data["status"] == "enqueued"
+    async def test_search_clear_index_requires_admin(self, client: AsyncClient, mock_search_service):
+        """Test clearing search index - requires admin access."""
+        # 清除索引是管理员操作
+        response = await client.post("/api/v1/search/index/clear")
+        # 普通用户应该被拒绝
+        assert response.status_code == 403
 
 
 @pytest.mark.integration
@@ -252,3 +235,71 @@ class TestSearchPerformance:
             data = response.json()
             assert "processing_time_ms" in data
             assert data["processing_time_ms"] < 500  # SLA requirement
+
+
+@pytest.mark.integration
+class TestSearchMultiTenant:
+    """Multi-tenant isolation tests for search (T182)."""
+
+    @pytest.fixture
+    def mock_search_service(self):
+        """Create a mock search service."""
+        mock = MagicMock()
+        mock.INDEX_NAME = "news_articles"
+        return mock
+
+    @pytest.mark.asyncio
+    async def test_search_passes_user_filter_for_regular_user(
+        self, client: AsyncClient, mock_search_service
+    ):
+        """Test that regular users get user_id filter applied."""
+        mock_search_service.search = AsyncMock(return_value={
+            "hits": [],
+            "query": "test",
+            "total_hits": 0,
+            "page": 1,
+            "hits_per_page": 20,
+            "total_pages": 0,
+            "processing_time_ms": 5,
+        })
+
+        with patch("app.api.v1.endpoints.search.get_search_service", return_value=mock_search_service):
+            response = await client.get("/api/v1/search?q=test")
+
+            assert response.status_code == 200
+            mock_search_service.search.assert_called_once()
+            call_kwargs = mock_search_service.search.call_args.kwargs
+
+            # Regular users should have user_id filter applied
+            assert "user_id" in call_kwargs
+            assert "tenant_id" in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_search_with_facets_passes_tenant_filter(
+        self, client: AsyncClient, mock_search_service
+    ):
+        """Test that faceted search also applies tenant filtering."""
+        mock_search_service.search_with_facets = AsyncMock(return_value=(
+            {
+                "hits": [],
+                "query": "test",
+                "total_hits": 0,
+                "page": 1,
+                "hits_per_page": 20,
+                "total_pages": 0,
+                "processing_time_ms": 5,
+            },
+            {"source_key": {}, "category": {}}
+        ))
+
+        with patch("app.api.v1.endpoints.search.get_search_service", return_value=mock_search_service):
+            response = await client.get("/api/v1/search/facets?q=test")
+
+            assert response.status_code == 200
+            mock_search_service.search_with_facets.assert_called_once()
+            call_kwargs = mock_search_service.search_with_facets.call_args.kwargs
+
+            # Tenant filtering should be applied
+            assert "user_id" in call_kwargs
+            assert "tenant_id" in call_kwargs
+

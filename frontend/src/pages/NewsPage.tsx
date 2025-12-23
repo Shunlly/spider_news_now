@@ -1,13 +1,14 @@
 /**
- * 新闻管理页面
- * News Management Page
+ * HUD 风格新闻管理页面
+ * HUD-style News Management Page
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { StoneCard, StoneButton, StoneInput, StoneSelect, StoneModal, useToast } from '@/components/ui'
+import DOMPurify from 'dompurify'
+import { HUDPanel, StoneButton, StoneSelect, StoneModal, useToast } from '@/components/ui'
 import {
   Search,
   RefreshCw,
@@ -21,6 +22,8 @@ import {
   FileText,
   ChevronsLeft,
   ChevronsRight,
+  Activity,
+  Database,
 } from 'lucide-react'
 import {
   newsService,
@@ -204,13 +207,14 @@ export default function NewsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">新闻管理</h1>
-          <p className="text-stone-500 mt-1">
-            共 {total.toLocaleString()} 篇文章
+          <h1 className="text-2xl font-bold text-cyan-400 tracking-wide">新闻管理</h1>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>共 <span className="text-cyan-400 font-mono">{total.toLocaleString()}</span> 篇文章</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -227,24 +231,28 @@ export default function NewsPage() {
       </div>
 
       {/* 搜索和过滤 */}
-      <StoneCard className="p-4">
+      <HUDPanel color="purple" className="mb-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
-            <StoneInput
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索文章标题..."
-              prefix={<Search className="w-4 h-4" />}
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索文章标题..."
+                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg pl-10 pr-4 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-stone-400" />
-            <StoneSelect
+            <Filter className="w-4 h-4 text-slate-500" />
+            <select
               value={selectedSource}
               onChange={(e) => {
                 setSelectedSource(e.target.value)
                 setPage(1)
               }}
+              className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500/50 transition-colors"
             >
               <option value="">全部来源</option>
               {sources.map((source) => (
@@ -252,65 +260,69 @@ export default function NewsPage() {
                   {source.display_name}
                 </option>
               ))}
-            </StoneSelect>
+            </select>
           </div>
         </div>
-      </StoneCard>
+      </HUDPanel>
 
       {/* 文章列表 */}
-      <StoneCard className="overflow-hidden">
+      <HUDPanel title="文章列表" subtitle="实时数据" color="cyan">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
           </div>
         ) : articles.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-stone-500">暂无文章数据</p>
+            <Database className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400">暂无文章数据</p>
           </div>
         ) : (
-          <div className="divide-y divide-stone-100">
-            {articles.map((article) => (
+          <div className="space-y-2">
+            {articles.map((article, index) => (
               <div
                 key={article.id}
-                className="p-4 hover:bg-stone-50 transition-colors"
+                className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50 hover:border-cyan-500/30 transition-all"
+                style={{
+                  animation: `fadeInUp 0.3s ease-out ${index * 0.03}s both`,
+                }}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <h3
-                      className="text-stone-900 font-medium truncate mb-2 cursor-pointer hover:text-stone-600 transition-colors"
+                      className="text-slate-200 font-medium truncate mb-2 cursor-pointer hover:text-cyan-400 transition-colors"
                       onClick={() => handleViewArticle(article)}
                     >
                       {article.title}
                     </h3>
-                    <div className="flex items-center gap-4 text-sm text-stone-500">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-100 rounded">
+                    <div className="flex items-center gap-4 text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded font-mono">
                         {article.source_key}
                       </span>
                       {article.category && (
-                        <span className="text-stone-400">{article.category}</span>
+                        <span className="text-slate-500">{article.category}</span>
                       )}
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 text-slate-500">
                         <Calendar className="w-3 h-3" />
                         {formatDate(article.published_at)}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => handleViewArticle(article)}
-                      className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                       title="查看正文"
                     >
-                      <FileText className="w-4 h-4 text-stone-500" />
+                      <FileText className="w-4 h-4 text-slate-500 hover:text-cyan-400" />
                     </button>
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                       title="打开原文"
                     >
-                      <ExternalLink className="w-4 h-4 text-stone-500" />
+                      <ExternalLink className="w-4 h-4 text-slate-500 hover:text-cyan-400" />
                     </a>
                   </div>
                 </div>
@@ -321,28 +333,27 @@ export default function NewsPage() {
 
         {/* 分页 */}
         {totalPages > 0 && (
-          <div className="flex flex-wrap items-center justify-between px-4 py-3 border-t border-stone-100 gap-4">
+          <div className="flex flex-wrap items-center justify-between mt-6 pt-4 border-t border-slate-700/50 gap-4">
             {/* 左侧：分页信息和每页数量选择 */}
             <div className="flex items-center gap-4">
-              <span className="text-sm text-stone-500">
-                共 {total.toLocaleString()} 条，第 {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} 条
+              <span className="text-sm text-slate-500 font-mono">
+                <span className="text-cyan-400">{(page - 1) * pageSize + 1}</span>-<span className="text-cyan-400">{Math.min(page * pageSize, total)}</span> / {total.toLocaleString()}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-stone-500">每页</span>
-                <StoneSelect
+                <span className="text-xs text-slate-500">每页</span>
+                <select
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value))
                     setPage(1)
                   }}
-                  className="w-20"
+                  className="bg-slate-800/50 border border-slate-700/50 rounded px-2 py-1 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
-                </StoneSelect>
-                <span className="text-sm text-stone-500">条</span>
+                </select>
               </div>
             </div>
 
@@ -351,18 +362,18 @@ export default function NewsPage() {
               <button
                 onClick={() => setPage(1)}
                 disabled={page === 1}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="首页"
               >
-                <ChevronsLeft className="w-4 h-4 text-stone-700" />
+                <ChevronsLeft className="w-4 h-4 text-slate-400" />
               </button>
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="上一页"
               >
-                <ChevronLeft className="w-4 h-4 text-stone-700" />
+                <ChevronLeft className="w-4 h-4 text-slate-400" />
               </button>
 
               <div className="flex items-center gap-1">
@@ -394,15 +405,15 @@ export default function NewsPage() {
 
                   return pages.map((p, idx) =>
                     p === '...' ? (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-stone-400">...</span>
+                      <span key={`ellipsis-${idx}`} className="px-2 text-slate-500">...</span>
                     ) : (
                       <button
                         key={p}
                         onClick={() => setPage(p as number)}
-                        className={`min-w-[32px] h-8 px-2 rounded-lg text-sm transition-colors ${
+                        className={`min-w-[32px] h-8 px-2 rounded-lg text-sm transition-all ${
                           p === page
-                            ? 'bg-stone-900 text-white font-medium'
-                            : 'hover:bg-stone-100 text-stone-600'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                            : 'hover:bg-slate-700/50 text-slate-400'
                         }`}
                       >
                         {p}
@@ -415,24 +426,24 @@ export default function NewsPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="下一页"
               >
-                <ChevronRight className="w-4 h-4 text-stone-700" />
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
               <button
                 onClick={() => setPage(totalPages)}
                 disabled={page === totalPages}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 title="末页"
               >
-                <ChevronsRight className="w-4 h-4 text-stone-700" />
+                <ChevronsRight className="w-4 h-4 text-slate-400" />
               </button>
             </div>
 
             {/* 右侧：跳转 */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-stone-500">跳至</span>
+              <span className="text-xs text-slate-500">跳至</span>
               <input
                 type="text"
                 value={jumpPage}
@@ -447,12 +458,10 @@ export default function NewsPage() {
                   }
                 }}
                 placeholder={String(page)}
-                className="w-16 bg-white border border-stone-200 rounded-lg px-2 py-1 text-stone-900 text-sm text-center focus:outline-none focus:border-stone-400"
+                className="w-14 bg-slate-800/50 border border-slate-700/50 rounded px-2 py-1 text-sm text-slate-300 text-center focus:outline-none focus:border-cyan-500/50"
               />
-              <span className="text-sm text-stone-500">页</span>
-              <StoneButton
-                size="sm"
-                variant="secondary"
+              <span className="text-xs text-slate-500">页</span>
+              <button
                 onClick={() => {
                   const targetPage = parseInt(jumpPage)
                   if (targetPage >= 1 && targetPage <= totalPages) {
@@ -460,13 +469,14 @@ export default function NewsPage() {
                     setJumpPage('')
                   }
                 }}
+                className="px-3 py-1 text-xs bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded transition-colors"
               >
-                确定
-              </StoneButton>
+                GO
+              </button>
             </div>
           </div>
         )}
-      </StoneCard>
+      </HUDPanel>
 
       {/* 导出模态框 */}
       <StoneModal
@@ -477,7 +487,7 @@ export default function NewsPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-stone-600 mb-2">导出格式</label>
+            <label className="block text-sm text-slate-400 mb-2">导出格式</label>
             <StoneSelect
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
@@ -489,13 +499,13 @@ export default function NewsPage() {
             </StoneSelect>
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">数据范围</label>
-            <p className="text-sm text-stone-400">
+            <label className="block text-sm text-slate-400 mb-2">数据范围</label>
+            <p className="text-sm text-slate-500">
               {selectedSource ? `来源: ${selectedSource}` : '全部来源'}，共 {total.toLocaleString()} 篇文章
             </p>
           </div>
           {exportMessage && (
-            <p className={`text-sm ${exportMessage.includes('失败') ? 'text-red-500' : 'text-green-500'}`}>
+            <p className={`text-sm ${exportMessage.includes('失败') ? 'text-red-400' : 'text-emerald-400'}`}>
               {exportMessage}
             </p>
           )}
@@ -505,12 +515,12 @@ export default function NewsPage() {
           </div>
 
           {/* 导出任务列表 */}
-          <div className="border-t border-stone-200 pt-4 mt-4">
+          <div className="border-t border-slate-700 pt-4 mt-4">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-stone-900">历史导出任务</h4>
+              <h4 className="text-sm font-medium text-slate-300">历史导出任务</h4>
               <button
                 onClick={fetchExportTasks}
-                className="text-xs text-stone-500 hover:text-stone-700"
+                className="text-xs text-slate-500 hover:text-cyan-400 transition-colors"
                 disabled={loadingTasks}
               >
                 {loadingTasks ? '加载中...' : '刷新'}
@@ -518,32 +528,32 @@ export default function NewsPage() {
             </div>
             {loadingTasks ? (
               <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-900"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-400"></div>
               </div>
             ) : exportTasks.length === 0 ? (
-              <p className="text-sm text-stone-400 text-center py-4">暂无导出任务</p>
+              <p className="text-sm text-slate-500 text-center py-4">暂无导出任务</p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {exportTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3 bg-stone-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
                   >
                     <div className="flex-1 min-w-0 mr-3">
-                      <p className="text-sm text-stone-900 truncate">{task.filename}</p>
-                      <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <p className="text-sm text-slate-300 truncate">{task.filename}</p>
+                      <div className="flex items-center gap-2 text-xs">
                         <span className={`px-1.5 py-0.5 rounded ${
-                          task.status.toUpperCase() === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                          task.status.toUpperCase() === 'FAILED' ? 'bg-red-100 text-red-700' :
-                          task.status.toUpperCase() === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'
+                          task.status.toUpperCase() === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                          task.status.toUpperCase() === 'FAILED' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                          task.status.toUpperCase() === 'PROCESSING' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                          'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                         }`}>
                           {task.status.toUpperCase() === 'COMPLETED' ? '已完成' :
                            task.status.toUpperCase() === 'FAILED' ? '失败' :
                            task.status.toUpperCase() === 'PROCESSING' ? '处理中' : '等待中'}
                         </span>
                         {task.exported_records && (
-                          <span>{task.exported_records} 条记录</span>
+                          <span className="text-slate-500">{task.exported_records} 条记录</span>
                         )}
                       </div>
                     </div>
@@ -565,11 +575,11 @@ export default function NewsPage() {
         </div>
       </StoneModal>
 
-      {/* 文章详情模态框 */}
+      {/* 文章详情模态框 - HUD 风格 */}
       {selectedArticle && createPortal(
         <>
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
             onClick={() => setSelectedArticle(null)}
           />
           <div
@@ -584,18 +594,24 @@ export default function NewsPage() {
               maxHeight: '80vh',
             }}
           >
-            <StoneCard className="w-full max-h-[80vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-stone-200 flex items-start justify-between gap-4 flex-shrink-0">
+            <div className="relative overflow-hidden rounded-xl bg-slate-900/95 backdrop-blur-sm border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.2)] max-h-[80vh] flex flex-col">
+              {/* 角落装饰 */}
+              <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-cyan-500/30" />
+              <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-cyan-500/30" />
+              <div className="absolute bottom-0 left-0 w-6 h-6 border-l-2 border-b-2 border-cyan-500/30" />
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-r-2 border-b-2 border-cyan-500/30" />
+
+              <div className="p-6 border-b border-slate-700/50 flex items-start justify-between gap-4 flex-shrink-0">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-stone-900 mb-2">{selectedArticle.title}</h3>
-                  <div className="flex items-center gap-4 text-sm text-stone-500 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-100 rounded">
+                  <h3 className="text-lg font-semibold text-slate-100 mb-2">{selectedArticle.title}</h3>
+                  <div className="flex items-center gap-4 text-xs flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded font-mono">
                       {selectedArticle.source_key}
                     </span>
                     {selectedArticle.category && (
-                      <span className="text-stone-400">{selectedArticle.category}</span>
+                      <span className="text-slate-500">{selectedArticle.category}</span>
                     )}
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 text-slate-500">
                       <Calendar className="w-3 h-3" />
                       {formatDate(selectedArticle.published_at)}
                     </span>
@@ -603,29 +619,29 @@ export default function NewsPage() {
                 </div>
                 <button
                   onClick={() => setSelectedArticle(null)}
-                  className="p-2 hover:bg-stone-100 rounded-lg flex-shrink-0"
+                  className="p-2 hover:bg-slate-700/50 rounded-lg flex-shrink-0 transition-colors"
                 >
-                  <X className="w-5 h-5 text-stone-500" />
+                  <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                 {articleLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
                   </div>
                 ) : selectedArticle.content_text ? (
                   <div
-                    className="text-stone-700 leading-relaxed prose prose-stone max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4"
-                    dangerouslySetInnerHTML={{ __html: selectedArticle.content_text }}
+                    className="text-slate-300 leading-relaxed prose prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.content_text) }}
                   />
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-stone-500 mb-4">暂无正文内容</p>
+                    <p className="text-slate-500 mb-4">暂无正文内容</p>
                     <a
                       href={selectedArticle.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-stone-700 hover:text-stone-900 transition-colors"
+                      className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors"
                     >
                       <ExternalLink className="w-4 h-4" />
                       查看原文
@@ -633,7 +649,7 @@ export default function NewsPage() {
                   </div>
                 )}
               </div>
-              <div className="p-4 border-t border-stone-200 flex justify-end gap-3 flex-shrink-0 bg-stone-50">
+              <div className="p-4 border-t border-slate-700/50 flex justify-end gap-3 flex-shrink-0 bg-slate-800/50">
                 <a
                   href={selectedArticle.url}
                   target="_blank"
@@ -643,11 +659,25 @@ export default function NewsPage() {
                 </a>
                 <StoneButton variant="secondary" onClick={() => setSelectedArticle(null)}>关闭</StoneButton>
               </div>
-            </StoneCard>
+            </div>
           </div>
         </>,
         document.body
       )}
+
+      {/* 动画样式 */}
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   )
 }

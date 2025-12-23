@@ -10,16 +10,16 @@ Storage File Model - Media File Metadata Management
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
     DateTime,
-    Enum as SQLEnum,
     Index,
-    Integer,
     String,
     func,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -97,11 +97,11 @@ class StorageFile(Base):
         SQLEnum(StorageBackend), nullable=False, index=True,
         comment="存储后端类型"
     )
-    bucket: Mapped[Optional[str]] = mapped_column(
+    bucket: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="存储桶名称"
     )
-    public_url: Mapped[Optional[str]] = mapped_column(
+    public_url: Mapped[str | None] = mapped_column(
         String(512), nullable=True,
         comment="公开访问 URL"
     )

@@ -2,19 +2,28 @@
 Telegram 爬虫实现
 Telegram Scraper Implementation
 
-使用 Telegram Bot API 获取频道/群组消息。
-支持增量采集和媒体下载。
+支持两种模式：
+1. Bot API 模式 - 获取 Bot 收到的更新（实时消息）
+2. MTProto 模式 - 获取频道历史消息（需要用户授权）
+
+功能：
+- 频道/群组消息采集
+- 历史消息回溯 (T099)
+- 增量采集（offset/min_id）
+- 媒体 URL 提取
+- 消息互动数据（浏览数、转发数）
 """
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.models.social_message import SocialMessage
 from app.models.social_session import Platform, SocialSession
 from app.scrapers.social_base import BaseSocialScraper
 from app.services.dedup_service import DuplicateService
@@ -24,13 +33,18 @@ logger = get_logger(__name__)
 
 class TelegramScraper(BaseSocialScraper):
     """
-    Telegram Bot API 爬虫
+    Telegram 爬虫
 
     支持功能：
     - 频道/群组消息采集
+    - **历史消息回溯** (T099 - 使用 MTProto API)
     - 增量采集（offset）
     - 媒体 URL 提取
     - 消息互动数据（浏览数）
+
+    工作模式：
+    - Bot API: 实时消息推送（需要 Bot Token）
+    - MTProto: 历史消息获取（需要用户授权的 TelegramService）
     """
 
     # Telegram Bot API 端点
@@ -40,8 +54,8 @@ class TelegramScraper(BaseSocialScraper):
         self,
         session: SocialSession,
         db: AsyncSession,
-        bot_token: Optional[str] = None,
-        dedup_service: Optional[DuplicateService] = None,
+        bot_token: str | None = None,
+        dedup_service: DuplicateService | None = None,
     ):
         """
         初始化 Telegram 爬虫
@@ -59,8 +73,8 @@ class TelegramScraper(BaseSocialScraper):
             dedup_service=dedup_service,
         )
         self.bot_token = bot_token or settings.TELEGRAM_BOT_TOKEN
-        self._client: Optional[httpx.AsyncClient] = None
-        self._bot_info: Optional[Dict[str, Any]] = None
+        self._client: httpx.AsyncClient | None = None
+        self._bot_info: dict[str, Any] | None = None
 
     @property
     def api_url(self) -> str:
@@ -78,8 +92,8 @@ class TelegramScraper(BaseSocialScraper):
     async def _call_api(
         self,
         method: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         调用 Telegram Bot API
 
@@ -114,7 +128,7 @@ class TelegramScraper(BaseSocialScraper):
             self.logger.error(f"Telegram API 调用失败: {e}")
             raise
 
-    async def get_bot_info(self) -> Dict[str, Any]:
+    async def get_bot_info(self) -> dict[str, Any]:
         """获取 Bot 信息"""
         if self._bot_info is None:
             self._bot_info = await self._call_api("getMe")
@@ -122,9 +136,9 @@ class TelegramScraper(BaseSocialScraper):
 
     async def fetch_messages(
         self,
-        since_id: Optional[str] = None,
+        since_id: str | None = None,
         max_results: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         获取频道/群组消息
 
@@ -158,8 +172,9 @@ class TelegramScraper(BaseSocialScraper):
             message = update.get("message") or update.get("channel_post")
             if message:
                 chat_id = str(message.get("chat", {}).get("id", ""))
-                # 检查是否是目标频道/群组
-                if chat_id == self.session.target_id or chat_id.lstrip("-100") == self.session.target_id:
+                # 检查是否是目标频道/群组 (Telegram 超级群组 ID 以 -100 开头)
+                normalized_chat_id = chat_id.removeprefix("-100") if chat_id.startswith("-100") else chat_id
+                if chat_id == self.session.target_id or normalized_chat_id == self.session.target_id:
                     message["_update_id"] = update.get("update_id")
                     messages.append(message)
 
@@ -168,22 +183,270 @@ class TelegramScraper(BaseSocialScraper):
     async def get_channel_history(
         self,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+        min_id: int = 0,
+    ) -> list[dict[str, Any]]:
         """
-        获取频道历史消息（需要 Bot 有 getChatHistory 权限）
+        获取频道历史消息（使用 MTProto API）(T099)
 
-        注意：标准 Bot API 不支持获取历史消息。
-        如需获取历史消息，需要使用 MTProto API (Telethon/Pyrogram)。
+        通过 TelegramService 获取频道历史消息，支持增量采集。
 
-        这里提供一个占位实现，实际使用时需要替换为 MTProto 实现。
+        Args:
+            limit: 获取消息数量
+            min_id: 最小消息 ID（用于增量采集）
+
+        Returns:
+            消息列表（MTProto 格式）
         """
-        self.logger.warning(
-            "标准 Bot API 不支持获取历史消息。"
-            "如需获取历史消息，请使用 MTProto API。"
-        )
-        return []
+        from app.services.telegram_service import get_telegram_service
 
-    async def parse_message(self, raw_message: Dict[str, Any]) -> Dict[str, Any]:
+        telegram = get_telegram_service()
+
+        if not telegram.is_connected:
+            self.logger.warning("TelegramService 未连接，无法获取历史消息")
+            return []
+
+        try:
+            channel_id = int(self.session.target_id)
+            messages = await telegram.get_messages(
+                channel_id=channel_id,
+                limit=limit,
+                offset_id=min_id,
+            )
+
+            self.logger.info(
+                f"获取到 {len(messages)} 条历史消息",
+                extra={"channel_id": channel_id, "min_id": min_id},
+            )
+
+            return messages
+
+        except Exception as e:
+            self.logger.error(f"获取历史消息失败: {e}")
+            return []
+
+    async def fetch_messages_mtproto(
+        self,
+        limit: int = 100,
+        min_id: int = 0,
+    ) -> list[dict[str, Any]]:
+        """
+        使用 MTProto API 获取消息（推荐）
+
+        这是 T099 的核心实现，使用 Telethon 客户端获取频道历史消息。
+
+        Args:
+            limit: 获取消息数量
+            min_id: 从此 ID 之后获取（增量采集）
+
+        Returns:
+            标准化的消息列表
+        """
+        raw_messages = await self.get_channel_history(limit=limit, min_id=min_id)
+
+        # 转换为标准格式
+        parsed_messages = []
+        for raw in raw_messages:
+            try:
+                parsed = self._parse_mtproto_message(raw)
+                if parsed:
+                    parsed_messages.append(parsed)
+            except Exception as e:
+                self.logger.warning(f"解析 MTProto 消息失败: {e}")
+                continue
+
+        return parsed_messages
+
+    def _parse_mtproto_message(self, raw: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        解析 MTProto 消息为标准格式
+
+        将 TelegramService.get_messages() 返回的消息转换为爬虫标准格式。
+
+        Args:
+            raw: TelegramService 返回的消息字典
+
+        Returns:
+            标准化的消息字典
+        """
+        if not raw:
+            return None
+
+        message_id = str(raw.get("id", ""))
+        if not message_id:
+            return None
+
+        # 解析时间
+        date_str = raw.get("date")
+        if date_str:
+            try:
+                posted_at = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                posted_at = posted_at.replace(tzinfo=None)
+            except (ValueError, TypeError):
+                posted_at = datetime.now()
+        else:
+            posted_at = datetime.now()
+
+        # 解析媒体
+        media_urls = raw.get("urls", [])
+        media_type = raw.get("media_type")
+        if media_type:
+            # 标记媒体类型
+            media_urls = [f"{media_type}:{url}" if not url.startswith("http") else url for url in media_urls]
+
+        return {
+            "message_id": message_id,
+            "author_id": str(raw.get("sender_id", self.session.target_id)),
+            "author_name": self.session.target_name,
+            "author_username": self.session.target_username,
+            "content": raw.get("text", ""),
+            "content_html": raw.get("html"),
+            "media_urls": media_urls,
+            "reply_count": 0,
+            "repost_count": raw.get("forwards", 0) or 0,
+            "like_count": 0,
+            "view_count": raw.get("views", 0) or 0,
+            "reply_to_id": str(raw.get("reply_to_id")) if raw.get("reply_to_id") else None,
+            "repost_of_id": None,
+            "posted_at": posted_at,
+            "raw_data": raw,
+        }
+
+    async def run_history(
+        self,
+        limit: int = 100,
+        min_id: int = 0,
+    ) -> dict[str, Any]:
+        """
+        执行历史消息采集流程 (T099)
+
+        完整流程：
+        1. 使用 MTProto API 获取历史消息
+        2. 解析和标准化消息
+        3. 去重检查
+        4. 存储到数据库
+        5. 更新会话统计
+
+        Args:
+            limit: 获取消息数量
+            min_id: 增量采集起始 ID
+
+        Returns:
+            采集结果统计
+        """
+        start_time = datetime.now()
+        result = {
+            "session_id": self.session.id,
+            "platform": self.platform.value,
+            "channel_id": self.session.target_id,
+            "fetched": 0,
+            "new": 0,
+            "duplicate": 0,
+            "failed": 0,
+            "duration_seconds": 0,
+            "error": None,
+        }
+
+        try:
+            # 获取历史消息
+            raw_messages = await self.get_channel_history(limit=limit, min_id=min_id)
+            result["fetched"] = len(raw_messages)
+
+            if not raw_messages:
+                self.logger.info("无历史消息")
+                return result
+
+            new_messages = []
+            for raw in raw_messages:
+                try:
+                    # 解析消息
+                    parsed = self._parse_mtproto_message(raw)
+                    if not parsed:
+                        result["failed"] += 1
+                        continue
+
+                    # 验证消息
+                    if not self.validate_message(parsed):
+                        result["failed"] += 1
+                        continue
+
+                    # 计算哈希
+                    message_hash = self.compute_message_hash(parsed["message_id"])
+
+                    # 去重检查
+                    if self.dedup_service:
+                        exists = await self.dedup_service.check_bloom_filter(message_hash)
+                        if exists:
+                            result["duplicate"] += 1
+                            continue
+
+                    # 创建消息记录
+                    message = SocialMessage(
+                        session_id=self.session.id,
+                        message_id=parsed["message_id"],
+                        message_hash=message_hash,
+                        author_id=parsed["author_id"],
+                        author_name=parsed["author_name"],
+                        author_username=parsed.get("author_username"),
+                        content=parsed.get("content"),
+                        content_html=parsed.get("content_html"),
+                        media_urls=json.dumps(parsed.get("media_urls", [])),
+                        media_local_paths=None,
+                        reply_count=parsed.get("reply_count", 0),
+                        repost_count=parsed.get("repost_count", 0),
+                        like_count=parsed.get("like_count", 0),
+                        view_count=parsed.get("view_count", 0),
+                        reply_to_id=parsed.get("reply_to_id"),
+                        repost_of_id=parsed.get("repost_of_id"),
+                        raw_data=json.dumps(parsed.get("raw_data", {})),
+                        posted_at=parsed["posted_at"],
+                    )
+
+                    new_messages.append(message)
+
+                    # 添加到 Bloom Filter
+                    if self.dedup_service:
+                        await self.dedup_service.add_to_bloom_filter(message_hash)
+
+                except Exception as e:
+                    self.logger.error(f"处理消息失败: {e}", exc_info=True)
+                    result["failed"] += 1
+                    continue
+
+            # 批量存储
+            if new_messages:
+                self.db.add_all(new_messages)
+                result["new"] = len(new_messages)
+
+            # 更新会话统计
+            self.session.message_count += result["new"]
+            self.session.last_fetch_at = datetime.now()
+            if new_messages:
+                latest_time = max(m.posted_at for m in new_messages)
+                if (
+                    self.session.last_message_at is None
+                    or latest_time > self.session.last_message_at
+                ):
+                    self.session.last_message_at = latest_time
+
+            await self.db.commit()
+
+            result["duration_seconds"] = (datetime.now() - start_time).total_seconds()
+
+            self.logger.info(
+                f"历史消息采集完成: 获取 {result['fetched']}, "
+                f"新增 {result['new']}, "
+                f"重复 {result['duplicate']}, "
+                f"失败 {result['failed']}",
+            )
+
+            return result
+
+        except Exception as e:
+            result["error"] = str(e)
+            self.logger.error(f"历史消息采集失败: {e}", exc_info=True)
+            raise
+
+    async def parse_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """
         解析 Telegram 消息为标准格式
 
@@ -280,7 +543,7 @@ class TelegramScraper(BaseSocialScraper):
     def _parse_entities(
         self,
         text: str,
-        entities: List[Dict[str, Any]],
+        entities: list[dict[str, Any]],
     ) -> str:
         """
         将 Telegram 实体解析为 HTML
@@ -337,7 +600,7 @@ class TelegramScraper(BaseSocialScraper):
 
         return result
 
-    async def get_file_url(self, file_id: str) -> Optional[str]:
+    async def get_file_url(self, file_id: str) -> str | None:
         """
         获取文件下载 URL
 
@@ -366,7 +629,7 @@ class TelegramScraper(BaseSocialScraper):
 async def create_telegram_scraper(
     session: SocialSession,
     db: AsyncSession,
-    dedup_service: Optional[DuplicateService] = None,
+    dedup_service: DuplicateService | None = None,
 ) -> TelegramScraper:
     """
     工厂函数：创建 Telegram 爬虫实例

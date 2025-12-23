@@ -52,6 +52,9 @@ async def register_scraper_jobs() -> None:
     This is called during application startup to initialize all scraper schedules.
     Reads from database and creates APScheduler jobs for each enabled source.
     """
+    from datetime import datetime, timedelta
+
+    from apscheduler import ConflictPolicy
     from apscheduler.triggers.interval import IntervalTrigger
 
     async with AsyncSessionLocal() as db:
@@ -65,12 +68,17 @@ async def register_scraper_jobs() -> None:
         for source in sources:
             job_id = f"scraper_{source.source_key}"
 
+            # 计算首次运行时间：当前时间 + 调度间隔
+            # 避免启动时立即运行所有爬虫导致阻塞
+            first_run = datetime.now() + timedelta(seconds=source.schedule_interval)
+
             # Add interval job with IntervalTrigger (APScheduler 4.0)
             await scheduler.add_schedule(
                 run_scraper_job,
-                IntervalTrigger(seconds=source.schedule_interval),
+                IntervalTrigger(seconds=source.schedule_interval, start_time=first_run),
                 id=job_id,
                 args=[source.source_key],
+                conflict_policy=ConflictPolicy.replace,
             )
 
             logger.info(
@@ -93,6 +101,7 @@ async def add_scraper_job(source_key: str, interval_seconds: int) -> None:
         source_key: Source identifier
         interval_seconds: Scrape interval in seconds
     """
+    from apscheduler import ConflictPolicy
     from apscheduler.triggers.interval import IntervalTrigger
 
     scheduler = await get_scheduler()
@@ -103,6 +112,7 @@ async def add_scraper_job(source_key: str, interval_seconds: int) -> None:
         IntervalTrigger(seconds=interval_seconds),
         id=job_id,
         args=[source_key],
+        conflict_policy=ConflictPolicy.replace,
     )
 
     logger.info(
@@ -126,17 +136,80 @@ async def remove_scraper_job(source_key: str) -> None:
     logger.info("Removed scraper job", extra={"source_key": source_key})
 
 
-async def trigger_scraper_now(source_key: str) -> None:
+async def trigger_scraper_now(
+    source_key: str,
+    user_id: str | None = None,
+    tenant_id: int | None = None,
+) -> None:
     """
     Manually trigger a scraper to run immediately.
 
     Args:
         source_key: Source identifier
+        user_id: User ID for quota management (optional)
+        tenant_id: Tenant ID for multi-tenant isolation
     """
-    logger.info("Manual trigger for scraper", extra={"source_key": source_key})
+    logger.info(
+        "Manual trigger for scraper",
+        extra={"source_key": source_key, "user_id": user_id, "tenant_id": tenant_id}
+    )
 
     async with AsyncSessionLocal() as db:
-        await ScraperService.run_scraper(db, source_key)
+        try:
+            run_id = await ScraperService.run_scraper(
+                db, source_key, user_id=user_id, tenant_id=tenant_id
+            )
+
+            # 如果有用户 ID，处理配额消耗
+            # If user_id provided, handle quota consumption
+            if user_id:
+                from app.models.scraper_run import ScraperRun
+                from app.services.quota_service import quota_service
+
+                # 获取本次运行的文章数量用于配额消耗
+                # Get the number of new articles for quota consumption
+                if run_id:
+                    stmt = select(ScraperRun).where(ScraperRun.id == run_id)
+                    result = await db.execute(stmt)
+                    run_record = result.scalar_one_or_none()
+
+                    if run_record and run_record.articles_new > 0:
+                        # 消耗配额（按新增文章数）
+                        await quota_service.consume_daily_quota(
+                            db, user_id, run_record.articles_new
+                        )
+                        logger.info(
+                            "Quota consumed for scraper run",
+                            extra={
+                                "source_key": source_key,
+                                "user_id": user_id,
+                                "articles_new": run_record.articles_new,
+                            }
+                        )
+
+                # 释放并发槽位
+                # Release concurrent slot
+                await quota_service.release_concurrent_slot(db, user_id)
+                logger.debug(
+                    "Concurrent slot released after scraper",
+                    extra={"source_key": source_key, "user_id": user_id}
+                )
+
+        except Exception as e:
+            # 发生异常也要释放并发槽位
+            # Release concurrent slot even on exception
+            if user_id:
+                try:
+                    from app.services.quota_service import quota_service
+                    await quota_service.release_concurrent_slot(db, user_id)
+                except Exception:
+                    pass  # Ignore release errors
+
+            logger.error(
+                "Manual trigger failed",
+                extra={"source_key": source_key, "user_id": user_id, "error": str(e)},
+                exc_info=True,
+            )
 
 
 # ============== 正文解析任务 ==============
@@ -183,16 +256,23 @@ async def register_content_parser_job(interval_seconds: int = 300) -> None:
     Args:
         interval_seconds: Parse interval in seconds (default 5 minutes)
     """
+    from datetime import datetime, timedelta
+
+    from apscheduler import ConflictPolicy
     from apscheduler.triggers.interval import IntervalTrigger
 
     scheduler = await get_scheduler()
     job_id = "content_parser"
 
+    # 延迟首次运行，避免启动时阻塞
+    first_run = datetime.now() + timedelta(seconds=interval_seconds)
+
     await scheduler.add_schedule(
         run_content_parser_job,
-        IntervalTrigger(seconds=interval_seconds),
+        IntervalTrigger(seconds=interval_seconds, start_time=first_run),
         id=job_id,
         args=[20],  # batch size
+        conflict_policy=ConflictPolicy.replace,
     )
 
     logger.info(

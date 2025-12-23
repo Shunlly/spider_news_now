@@ -11,18 +11,20 @@ Account Credentials Model - Social Platform Account Management
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Enum as SQLEnum,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
     func,
+)
+from sqlalchemy import (
+    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -114,21 +116,21 @@ class AccountCredential(Base):
         Integer, nullable=False, default=0,
         comment="错误次数"
     )
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+    last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后使用时间"
     )
-    last_error_at: Mapped[Optional[datetime]] = mapped_column(
+    last_error_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="最后错误时间"
     )
-    last_error_message: Mapped[Optional[str]] = mapped_column(
+    last_error_message: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="最后错误信息"
     )
 
     # 限流信息
-    rate_limit_reset_at: Mapped[Optional[datetime]] = mapped_column(
+    rate_limit_reset_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True,
         comment="限流重置时间"
     )

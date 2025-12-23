@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.core.logging import get_logger
 from app.db.session import AsyncSessionLocal
-from app.models.social_session import SocialSession, Platform
+from app.models.social_session import Platform, SocialSession
 from app.services.social_service import SocialService
 from app.tasks.scheduler import get_scheduler
 
@@ -104,15 +104,22 @@ async def register_social_fetch_job(interval_seconds: int = 600) -> None:
     Args:
         interval_seconds: 采集间隔（秒），默认 10 分钟
     """
+    from datetime import datetime, timedelta
+
+    from apscheduler import ConflictPolicy
     from apscheduler.triggers.interval import IntervalTrigger
 
     scheduler = await get_scheduler()
     job_id = "social_data_fetch"
 
+    # 延迟首次运行，避免启动时阻塞
+    first_run = datetime.now() + timedelta(seconds=interval_seconds)
+
     await scheduler.add_schedule(
         run_social_fetch_job,
-        IntervalTrigger(seconds=interval_seconds),
+        IntervalTrigger(seconds=interval_seconds, start_time=first_run),
         id=job_id,
+        conflict_policy=ConflictPolicy.replace,
     )
 
     logger.info(
@@ -145,3 +152,157 @@ async def trigger_subscription_fetch(session_id: int) -> dict:
         采集结果
     """
     return await run_single_fetch_job(session_id)
+
+
+async def run_thread_fetch_job(session_id: int, tweet_id: str) -> dict:
+    """
+    采集 Twitter Thread (T098)
+
+    Args:
+        session_id: 关联的订阅 ID
+        tweet_id: Thread 起始推文 ID
+
+    Returns:
+        采集结果
+    """
+    logger.info(
+        "Starting Twitter Thread fetch",
+        extra={"session_id": session_id, "tweet_id": tweet_id},
+    )
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # 获取订阅
+            result = await db.execute(
+                select(SocialSession).where(SocialSession.id == session_id)
+            )
+            session = result.scalar_one_or_none()
+
+            if not session:
+                return {"success": False, "message": "订阅不存在"}
+
+            if session.platform != Platform.TWITTER:
+                return {"success": False, "message": "仅支持 Twitter 平台"}
+
+            # 采集 Thread
+            fetch_result = await SocialService.fetch_twitter_thread(
+                db=db,
+                session=session,
+                tweet_id=tweet_id,
+            )
+
+            logger.info(
+                "Thread fetch completed",
+                extra={
+                    "session_id": session_id,
+                    "tweet_id": tweet_id,
+                    "new_count": fetch_result.get("new_count", 0),
+                    "total_count": fetch_result.get("total_count", 0),
+                },
+            )
+
+            return fetch_result
+
+        except Exception as e:
+            logger.error(
+                "Thread fetch exception",
+                extra={"session_id": session_id, "tweet_id": tweet_id, "error": str(e)},
+                exc_info=True,
+            )
+            return {"success": False, "message": str(e)}
+
+
+async def trigger_thread_fetch(session_id: int, tweet_id: str) -> dict:
+    """
+    手动触发 Twitter Thread 采集
+
+    Args:
+        session_id: 关联的订阅 ID
+        tweet_id: Thread 起始推文 ID（可以是 Thread 中任意一条推文）
+
+    Returns:
+        采集结果
+    """
+    return await run_thread_fetch_job(session_id, tweet_id)
+
+
+async def run_telegram_history_job(
+    session_id: int,
+    limit: int = 100,
+    min_id: int = 0,
+) -> dict:
+    """
+    采集 Telegram 频道历史消息 (T099)
+
+    Args:
+        session_id: 订阅 ID
+        limit: 获取消息数量
+        min_id: 从此 ID 之后获取（增量采集）
+
+    Returns:
+        采集结果
+    """
+    logger.info(
+        "Starting Telegram history fetch",
+        extra={"session_id": session_id, "limit": limit, "min_id": min_id},
+    )
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # 获取订阅
+            result = await db.execute(
+                select(SocialSession).where(SocialSession.id == session_id)
+            )
+            session = result.scalar_one_or_none()
+
+            if not session:
+                return {"success": False, "message": "订阅不存在"}
+
+            if session.platform != Platform.TELEGRAM:
+                return {"success": False, "message": "仅支持 Telegram 平台"}
+
+            # 采集历史消息
+            fetch_result = await SocialService.fetch_telegram_history(
+                db=db,
+                session=session,
+                limit=limit,
+                min_id=min_id,
+            )
+
+            logger.info(
+                "Telegram history fetch completed",
+                extra={
+                    "session_id": session_id,
+                    "new_count": fetch_result.get("new_count", 0),
+                    "total_count": fetch_result.get("total_count", 0),
+                },
+            )
+
+            return fetch_result
+
+        except Exception as e:
+            logger.error(
+                "Telegram history fetch exception",
+                extra={"session_id": session_id, "error": str(e)},
+                exc_info=True,
+            )
+            return {"success": False, "message": str(e)}
+
+
+async def trigger_telegram_history_fetch(
+    session_id: int,
+    limit: int = 100,
+    min_id: int = 0,
+) -> dict:
+    """
+    手动触发 Telegram 历史消息采集
+
+    Args:
+        session_id: 订阅 ID
+        limit: 获取消息数量
+        min_id: 增量采集起始 ID
+
+    Returns:
+        采集结果
+    """
+    return await run_telegram_history_job(session_id, limit, min_id)

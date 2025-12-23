@@ -8,19 +8,20 @@ Social Data API Endpoints
 """
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_active_user, require_quota
 from app.core.logging import get_logger
 from app.db.session import get_db
-from app.models.user import User
-from app.models.social_session import Platform, SessionStatus, SocialSession
 from app.models.social_message import SocialMessage
+from app.models.social_session import Platform, SessionStatus, SocialSession
+from app.models.user import User
 from app.schemas.social import (
+    PlatformStats,
     SocialMessageListResponse,
     SocialMessageResponse,
     SocialSessionActionResponse,
@@ -30,7 +31,6 @@ from app.schemas.social import (
     SocialSessionResponse,
     SocialSessionUpdate,
     SocialStatisticsResponse,
-    PlatformStats,
 )
 from app.services.permission_service import apply_user_filter
 
@@ -46,8 +46,8 @@ router = APIRouter(prefix="/social", tags=["social"])
 @router.get("/sessions", response_model=SocialSessionListResponse)
 async def list_sessions(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    platform: Optional[Platform] = Query(None, description="按平台过滤"),
-    status: Optional[SessionStatus] = Query(None, description="按状态过滤"),
+    platform: Platform | None = Query(None, description="按平台过滤"),
+    status: SessionStatus | None = Query(None, description="按状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: AsyncSession = Depends(get_db),
@@ -143,7 +143,7 @@ async def create_session(
 
 @router.get("/sessions/{session_id}", response_model=SocialSessionDetailResponse)
 async def get_session(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     include_messages: bool = Query(True, description="是否包含最近消息"),
     message_limit: int = Query(10, ge=1, le=50, description="消息数量限制"),
@@ -185,7 +185,7 @@ async def get_session(
 
 @router.put("/sessions/{session_id}", response_model=SocialSessionActionResponse)
 async def update_session(
-    session_id: int,
+    session_id: str,
     update_data: SocialSessionUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
@@ -224,7 +224,7 @@ async def update_session(
 
 @router.delete("/sessions/{session_id}", response_model=SocialSessionActionResponse)
 async def delete_session(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
@@ -257,7 +257,7 @@ async def delete_session(
 
 @router.post("/sessions/{session_id}/pause", response_model=SocialSessionActionResponse)
 async def pause_session(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
@@ -267,7 +267,7 @@ async def pause_session(
 
 @router.post("/sessions/{session_id}/resume", response_model=SocialSessionActionResponse)
 async def resume_session(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
@@ -277,7 +277,7 @@ async def resume_session(
 
 async def _update_session_status(
     db: AsyncSession,
-    session_id: int,
+    session_id: str,
     new_status: SessionStatus,
     message: str,
     current_user: User,
@@ -311,7 +311,7 @@ async def _update_session_status(
 
 @router.get("/sessions/{session_id}/messages", response_model=SocialMessageListResponse)
 async def list_messages(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(50, ge=1, le=200, description="每页数量"),
@@ -361,7 +361,7 @@ async def list_messages(
 
 @router.get("/messages/{message_id}", response_model=SocialMessageResponse)
 async def get_message(
-    message_id: int,
+    message_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
@@ -499,7 +499,7 @@ async def subscribe_twitter_user(
     user_id: str = Query(..., description="Twitter 用户 ID"),
     screen_name: str = Query(..., description="用户名"),
     name: str = Query(..., description="显示名称"),
-    description: Optional[str] = Query(None, description="订阅描述"),
+    description: str | None = Query(None, description="订阅描述"),
     fetch_interval: int = Query(3600, description="采集间隔（秒）"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -531,9 +531,9 @@ async def subscribe_telegram_channel(
     current_user: Annotated[User, Depends(get_current_active_user)],
     channel_id: int = Query(..., description="频道/群组 ID"),
     title: str = Query(..., description="标题"),
-    username: Optional[str] = Query(None, description="用户名"),
+    username: str | None = Query(None, description="用户名"),
     target_type: str = Query("channel", description="类型：channel/group"),
-    description: Optional[str] = Query(None, description="订阅描述"),
+    description: str | None = Query(None, description="订阅描述"),
     fetch_interval: int = Query(1800, description="采集间隔（秒）"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -563,14 +563,19 @@ async def subscribe_telegram_channel(
 
 @router.post("/sessions/{session_id}/fetch")
 async def fetch_session_messages(
-    session_id: int,
+    session_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    quota_info: Annotated[dict, Depends(require_quota())],
     db: AsyncSession = Depends(get_db),
 ):
     """
     手动触发单个订阅的数据采集
 
     Note: 管理员可触发所有会话，普通用户只能触发自己的会话。
+
+    Raises:
+        404: 会话不存在
+        429: 配额不足
     """
     # 验证会话存在且用户有权限
     session_stmt = select(SocialSession).where(SocialSession.id == session_id)
@@ -583,10 +588,20 @@ async def fetch_session_messages(
 
     from app.tasks.social_tasks import trigger_subscription_fetch
 
+    # 配额已由 require_quota() 依赖检查
     result = await trigger_subscription_fetch(session_id)
 
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("message"))
+
+    logger.info(
+        "Social fetch triggered",
+        extra={
+            "session_id": session_id,
+            "user_id": current_user.id,
+            "daily_remaining": quota_info["daily_remaining"],
+        }
+    )
 
     return result
 
@@ -594,15 +609,28 @@ async def fetch_session_messages(
 @router.post("/fetch-all")
 async def fetch_all_active_subscriptions(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    quota_info: Annotated[dict, Depends(require_quota())],
 ):
     """
     手动触发所有活跃订阅的数据采集
 
-    Note: 需要登录认证。
+    Note: 需要登录认证，并检查配额。
+
+    Raises:
+        429: 配额不足
     """
     from app.tasks.social_tasks import trigger_social_fetch_now
 
+    # 配额已由 require_quota() 依赖检查
     result = await trigger_social_fetch_now()
+
+    logger.info(
+        "Social fetch-all triggered",
+        extra={
+            "user_id": current_user.id,
+            "daily_remaining": quota_info["daily_remaining"],
+        }
+    )
 
     return result
 
@@ -610,9 +638,9 @@ async def fetch_all_active_subscriptions(
 @router.get("/messages")
 async def search_all_messages(
     current_user: Annotated[User, Depends(get_current_active_user)],
-    platform: Optional[str] = Query(None, description="平台过滤：twitter/telegram"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    subscription_id: Optional[int] = Query(None, description="订阅 ID"),
+    platform: str | None = Query(None, description="平台过滤：twitter/telegram"),
+    keyword: str | None = Query(None, description="关键词搜索"),
+    subscription_id: str | None = Query(None, description="订阅 ID"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(50, ge=1, le=200, description="每页数量"),
     db: AsyncSession = Depends(get_db),

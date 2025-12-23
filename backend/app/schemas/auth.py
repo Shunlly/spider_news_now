@@ -5,12 +5,10 @@ Auth Pydantic Schemas for Login/Captcha Request/Response
 定义登录、验证码等认证相关的请求和响应模型。
 """
 
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from app.schemas.user import UserResponse
-
 
 # ============== Captcha Schemas ==============
 
@@ -47,14 +45,56 @@ class CaptchaVerifyResponse(BaseModel):
         ...,
         description="验证是否成功"
     )
-    verified_token: Optional[str] = Field(
+    verified_token: str | None = Field(
         None,
         description="验证通过后的 Token，用于登录请求"
     )
-    message: Optional[str] = Field(
+    message: str | None = Field(
         None,
         description="验证结果消息"
     )
+
+
+# ============== Register Schemas ==============
+
+
+class RegisterRequest(BaseModel):
+    """注册请求 Schema"""
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        pattern=r'^[a-zA-Z][a-zA-Z0-9_]*$',
+        description="用户名（字母开头，只能包含字母、数字、下划线）"
+    )
+    email: str = Field(
+        ...,
+        min_length=5,
+        max_length=255,
+        description="邮箱地址"
+    )
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="密码（至少8位）"
+    )
+    captcha_token: str = Field(
+        ...,
+        description="验证码 Token"
+    )
+    captcha_code: str = Field(
+        ...,
+        min_length=1,
+        max_length=10,
+        description="验证码"
+    )
+
+
+class RegisterResponse(BaseModel):
+    """注册响应 Schema"""
+    message: str = Field(..., description="注册结果消息")
+    user: UserResponse = Field(..., description="注册的用户信息")
 
 
 # ============== Login Schemas ==============
@@ -142,7 +182,30 @@ class ErrorResponse(BaseModel):
         ...,
         description="错误详情"
     )
-    error_code: Optional[str] = Field(
+    error_code: str | None = Field(
         None,
         description="错误代码"
+    )
+
+
+# ============== Profile Schemas ==============
+
+
+class ProfileUpdateRequest(BaseModel):
+    """个人信息更新请求 Schema"""
+    email: str | None = Field(
+        None,
+        min_length=5,
+        max_length=255,
+        description="新邮箱地址"
+    )
+    current_password: str | None = Field(
+        None,
+        description="当前密码（修改密码时必填）"
+    )
+    new_password: str | None = Field(
+        None,
+        min_length=8,
+        max_length=128,
+        description="新密码"
     )

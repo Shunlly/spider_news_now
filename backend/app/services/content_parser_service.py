@@ -12,12 +12,14 @@ from datetime import datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.news_article import NewsArticle
 from app.scrapers.base import BaseScraper
 from app.services.storage_service import get_storage_service
-from app.services.search_service import get_search_service
+from app.tasks.search_tasks import index_documents_async
 
 logger = get_logger(__name__)
 
@@ -43,7 +45,6 @@ class ContentParserService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.storage_service = get_storage_service()
-        self.search_service = get_search_service()
         self.semaphore = asyncio.Semaphore(CONCURRENCY)
 
     async def get_pending_articles(self, limit: int = BATCH_SIZE) -> list[NewsArticle]:
@@ -54,10 +55,11 @@ class ContentParserService:
             limit: 返回数量限制
 
         Returns:
-            待解析的文章列表
+            待解析的文章列表（包含 owner 关系用于获取 tenant_id）
         """
         stmt = (
             select(NewsArticle)
+            .options(selectinload(NewsArticle.owner))  # 加载 owner 关系以获取 tenant_id
             .where(
                 NewsArticle.content_status.in_(["pending", "failed"]),
                 NewsArticle.content_retry_count < MAX_RETRY_COUNT,
@@ -159,7 +161,7 @@ class ContentParserService:
                 await self._mark_failed(article)
                 return False
 
-    async def _mark_failed(self, article: NewsArticle):
+    async def _mark_failed(self, article: NewsArticle) -> None:
         """标记文章解析失败"""
         await self.db.execute(
             update(NewsArticle)
@@ -207,8 +209,8 @@ class ContentParserService:
         text = re.sub(r"\s+", " ", text).strip()
         return text[:10000]  # 限制长度
 
-    async def _update_search_index(self, article: NewsArticle, content_text: str):
-        """更新搜索索引"""
+    async def _update_search_index(self, article: NewsArticle, content_text: str) -> None:
+        """更新搜索索引（包含多租户信息，支持异步队列）"""
         try:
             doc = {
                 "id": article.id,
@@ -216,13 +218,17 @@ class ContentParserService:
                 "url": article.url,
                 "source_key": article.source_key,
                 "category": article.category,
-                "content": content_text,
+                "content": content_text[:settings.MEILISEARCH_CONTENT_MAX_LENGTH] if content_text else None,
                 "published_at": article.published_at,
                 "created_at": article.created_at,
+                # 多租户隔离字段
+                "user_id": article.user_id,
+                "tenant_id": str(article.owner.tenant_id) if article.owner and article.owner.tenant_id else None,
             }
-            await self.search_service.index_documents([doc])
+            task_id = index_documents_async([doc])
+            logger.debug(f"Queued article {article.id} for search indexing, task_id: {task_id}")
         except Exception as e:
-            logger.warning(f"Failed to update search index for article {article.id}: {e}")
+            logger.warning(f"Failed to queue article {article.id} for search indexing: {e}")
 
     async def run_batch(self, limit: int = BATCH_SIZE) -> dict:
         """
@@ -264,7 +270,7 @@ class GenericContentParser(BaseScraper):
     def __init__(self, source_key: str):
         super().__init__(source_key=source_key, display_name=f"Generic-{source_key}")
 
-    async def scrape(self):
+    async def scrape(self) -> list[dict]:
         """不实现抓取，只用于正文解析"""
         return []
 

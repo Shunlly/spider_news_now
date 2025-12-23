@@ -4,15 +4,15 @@ Integration tests for Export API and workflow.
 Tests the full export process including task creation, execution, and download.
 """
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
+
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.export_task import ExportFormat, ExportStatus, ExportTask
 from app.models.news_article import NewsArticle
 from app.models.news_source import NewsSource
-from app.models.export_task import ExportTask, ExportFormat, ExportStatus
 from app.services.export_service import DataSource
 
 
@@ -43,11 +43,11 @@ class TestExportWorkflowIntegration:
         return source, articles
 
     @pytest.mark.asyncio
-    async def test_export_task_creation(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_export_task_creation(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test creating an export task."""
         export_request = {
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         }
 
         response = await client.post("/api/v1/exports", json=export_request)
@@ -56,16 +56,16 @@ class TestExportWorkflowIntegration:
         data = response.json()
         assert data["success"] is True
         assert data["task"]["data_source"] == "news"
-        assert data["task"]["export_format"] == "csv"
-        assert data["task"]["status"] in ["pending", "processing"]
+        assert data["task"]["export_format"] == "CSV"
+        assert data["task"]["status"] in ["PENDING", "PROCESSING"]
         assert data["task"]["filename"].endswith(".csv")
 
     @pytest.mark.asyncio
-    async def test_export_task_with_custom_filename(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_export_task_with_custom_filename(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test creating export with custom filename."""
         export_request = {
             "data_source": "news",
-            "export_format": "json",
+            "export_format": "JSON",
             "filename": "my_custom_export.json",
         }
 
@@ -75,11 +75,11 @@ class TestExportWorkflowIntegration:
         assert response.json()["task"]["filename"] == "my_custom_export.json"
 
     @pytest.mark.asyncio
-    async def test_export_task_with_filters(self, client: AsyncClient, db_session: AsyncSession, news_data):
+    async def test_export_task_with_filters(self, client: AsyncClient, db_session: AsyncSession, news_data, test_user):
         """Test creating export with filters."""
         export_request = {
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
             "filters": {
                 "source_key": "test_source",
                 "start_date": (datetime.now() - timedelta(days=7)).isoformat(),
@@ -93,9 +93,9 @@ class TestExportWorkflowIntegration:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_export_formats(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_export_formats(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test different export formats."""
-        formats = ["csv", "json", "excel"]
+        formats = ["CSV", "JSON", "EXCEL"]
 
         for fmt in formats:
             export_request = {
@@ -110,22 +110,22 @@ class TestExportWorkflowIntegration:
             assert data["task"]["export_format"] == fmt
 
             # Verify file extension
-            if fmt == "csv":
+            if fmt == "CSV":
                 assert data["task"]["filename"].endswith(".csv")
-            elif fmt == "json":
+            elif fmt == "JSON":
                 assert data["task"]["filename"].endswith(".json")
-            elif fmt == "excel":
+            elif fmt == "EXCEL":
                 assert data["task"]["filename"].endswith(".xlsx")
 
     @pytest.mark.asyncio
-    async def test_export_data_sources(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_export_data_sources(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test different data sources."""
         sources = ["news", "social_sessions", "social_messages"]
 
         for source in sources:
             export_request = {
                 "data_source": source,
-                "export_format": "csv",
+                "export_format": "CSV",
             }
 
             response = await client.post("/api/v1/exports", json=export_request)
@@ -134,13 +134,13 @@ class TestExportWorkflowIntegration:
             assert response.json()["task"]["data_source"] == source
 
     @pytest.mark.asyncio
-    async def test_list_export_tasks(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_list_export_tasks(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test listing export tasks."""
         # Create multiple export tasks
-        for i in range(3):
+        for _ in range(3):
             await client.post("/api/v1/exports", json={
                 "data_source": "news",
-                "export_format": "csv",
+                "export_format": "CSV",
             })
 
         # List all tasks
@@ -151,12 +151,12 @@ class TestExportWorkflowIntegration:
         assert data["total"] >= 3
 
     @pytest.mark.asyncio
-    async def test_list_exports_filter_by_status(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_list_exports_filter_by_status(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test filtering exports by status."""
         # Create task
         await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Filter by pending/processing status
@@ -166,18 +166,18 @@ class TestExportWorkflowIntegration:
         # Task might be pending or already processing
 
     @pytest.mark.asyncio
-    async def test_list_exports_filter_by_data_source(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_list_exports_filter_by_data_source(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test filtering exports by data source."""
         # Create news export
         await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Create social export
         await client.post("/api/v1/exports", json={
             "data_source": "social_sessions",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Filter by news
@@ -189,12 +189,12 @@ class TestExportWorkflowIntegration:
             assert task["data_source"] == "news"
 
     @pytest.mark.asyncio
-    async def test_get_export_task_details(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_get_export_task_details(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test getting specific export task."""
         # Create task
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "json",
+            "export_format": "JSON",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -208,18 +208,18 @@ class TestExportWorkflowIntegration:
         assert "status" in data
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_export_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_get_nonexistent_export_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test getting non-existent export task."""
-        response = await client.get("/api/v1/exports/99999")
+        response = await client.get("/api/v1/exports/00000000-0000-0000-0000-000000000000")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_export_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_delete_export_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test deleting export task."""
         # Create task
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -234,7 +234,7 @@ class TestExportWorkflowIntegration:
         assert get_response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_export_cleanup(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_export_cleanup(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test export cleanup endpoint."""
         response = await client.post("/api/v1/exports/cleanup?days=7")
 
@@ -249,12 +249,12 @@ class TestExportDownloadIntegration:
     """Integration tests for export download functionality."""
 
     @pytest.mark.asyncio
-    async def test_download_incomplete_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_download_incomplete_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test downloading from incomplete task."""
         # Create task (will be in pending state)
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -265,28 +265,39 @@ class TestExportDownloadIntegration:
         assert download_response.status_code in [200, 400]
 
     @pytest.mark.asyncio
-    async def test_download_completed_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_download_completed_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test downloading completed export task."""
-        # Create completed task directly in DB
-        task = ExportTask(
-            data_source=DataSource.NEWS.value,
-            export_format=ExportFormat.CSV,
-            status=ExportStatus.COMPLETED,
-            filename="test_export.csv",
-            file_path="/tmp/test_export.csv",
-            file_size=1024,
-            total_records=100,
-        )
-        db_session.add(task)
-        await db_session.commit()
-        await db_session.refresh(task)
+        import os
+        import tempfile
 
-        # Mock file existence and try download
-        with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", MagicMock()):
-                download_response = await client.get(f"/api/v1/exports/{task.id}/download")
-                # The actual download may fail due to file mocking, but we test the flow
-                assert download_response.status_code in [200, 500]
+        # Create actual temp file for download test
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            f.write("id,name\n1,test\n")
+            temp_path = f.name
+
+        try:
+            # Create completed task directly in DB
+            task = ExportTask(
+                user_id=test_user.id,
+                data_source=DataSource.NEWS.value,
+                export_format=ExportFormat.CSV,
+                status=ExportStatus.COMPLETED,
+                filename="test_export.csv",
+                file_path=temp_path,
+                file_size=1024,
+                total_records=100,
+            )
+            db_session.add(task)
+            await db_session.commit()
+            await db_session.refresh(task)
+
+            # Try download
+            download_response = await client.get(f"/api/v1/exports/{task.id}/download")
+            assert download_response.status_code == 200
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
 
 @pytest.mark.integration
@@ -294,10 +305,11 @@ class TestExportRetryIntegration:
     """Integration tests for export retry functionality."""
 
     @pytest.mark.asyncio
-    async def test_retry_failed_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_retry_failed_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test retrying a failed export task."""
         # Create failed task directly in DB
         task = ExportTask(
+            user_id=test_user.id,
             data_source=DataSource.NEWS.value,
             export_format=ExportFormat.CSV,
             status=ExportStatus.FAILED,
@@ -316,12 +328,12 @@ class TestExportRetryIntegration:
         assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_retry_non_failed_task(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_retry_non_failed_task(self, client: AsyncClient, db_session: AsyncSession, test_user):
         """Test retrying a non-failed task (should fail)."""
         # Create pending task
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 

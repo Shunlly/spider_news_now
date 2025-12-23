@@ -9,7 +9,7 @@
 // ============== User Types ==============
 
 /**
- * 用户角色枚举
+ * 用户角色枚举（向后兼容）
  */
 export enum UserRole {
   ADMIN = 'admin',
@@ -17,17 +17,62 @@ export enum UserRole {
 }
 
 /**
+ * 角色类型枚举（新 RBAC 系统）
+ */
+export enum RoleType {
+  SUPER_ADMIN = 'super_admin',
+  TENANT_ADMIN = 'tenant_admin',
+  USER = 'user',
+}
+
+/**
+ * 配额等级枚举
+ */
+export enum QuotaTier {
+  FREE = 'free',
+  BASIC = 'basic',
+  PRO = 'pro',
+}
+
+/**
  * 用户信息（从后端返回）
  */
 export interface User {
-  id: number;
+  id: string;
   username: string;
   email: string | null;
-  role: UserRole;
+  role_id: number;
+  tenant_id: number | null;
+  quota_tier: QuotaTier | string;
+  is_verified: boolean;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
 }
+
+/**
+ * 检查用户是否为管理员
+ */
+export const isAdmin = (user: User | null): boolean => {
+  if (!user) return false;
+  return user.role_id === 1 || user.role_id === 2;
+};
+
+/**
+ * 检查用户是否为超级管理员
+ */
+export const isSuperAdmin = (user: User | null): boolean => {
+  if (!user) return false;
+  return user.role_id === 1;
+};
+
+/**
+ * 检查用户是否为租户管理员
+ */
+export const isTenantAdmin = (user: User | null): boolean => {
+  if (!user) return false;
+  return user.role_id === 2;
+};
 
 /**
  * 创建用户请求
@@ -169,4 +214,21 @@ export interface ErrorResponse {
  */
 export interface MessageResponse {
   message: string;
+}
+
+// ============== Quota Types ==============
+
+/**
+ * 配额信息（从后端返回）
+ */
+export interface QuotaInfo {
+  tier: string;
+  daily_limit: number;
+  daily_used: number;
+  daily_remaining: number;
+  concurrent_limit: number;
+  concurrent_used: number;
+  concurrent_remaining: number;
+  reset_at: string | null;
+  warning: boolean;
 }

@@ -9,7 +9,7 @@ Social Message Model - Twitter/Telegram Message Data
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -79,33 +79,33 @@ class SocialMessage(Base):
         String(100), nullable=False,
         comment="发送者显示名"
     )
-    author_username: Mapped[Optional[str]] = mapped_column(
+    author_username: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="发送者用户名"
     )
 
     # 消息内容
-    content: Mapped[Optional[str]] = mapped_column(
+    content: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="消息文本内容"
     )
-    content_html: Mapped[Optional[str]] = mapped_column(
+    content_html: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="消息 HTML 格式（保留格式化）"
     )
 
     # SimHash 指纹（用于相似内容检测）
-    simhash: Mapped[Optional[int]] = mapped_column(
+    simhash: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, index=True,
         comment="内容 SimHash 指纹"
     )
 
     # 媒体附件（JSON 格式存储）
-    media_urls: Mapped[Optional[str]] = mapped_column(
+    media_urls: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="媒体 URL 列表（JSON 数组）"
     )
-    media_local_paths: Mapped[Optional[str]] = mapped_column(
+    media_local_paths: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="本地存储路径列表（JSON 数组）"
     )
@@ -129,17 +129,17 @@ class SocialMessage(Base):
     )
 
     # 引用/回复关系
-    reply_to_id: Mapped[Optional[str]] = mapped_column(
+    reply_to_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="回复的消息 ID"
     )
-    repost_of_id: Mapped[Optional[str]] = mapped_column(
+    repost_of_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True,
         comment="转发的原消息 ID"
     )
 
     # 原始数据（用于调试和数据恢复）
-    raw_data: Mapped[Optional[str]] = mapped_column(
+    raw_data: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="原始 JSON 数据"
     )

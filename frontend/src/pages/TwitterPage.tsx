@@ -1,13 +1,12 @@
 /**
- * Twitter 管理页面
- * Twitter Management Page
+ * HUD 风格 Twitter 管理页面
+ * HUD-style Twitter Management Page
  *
- * 使用 Cookie 认证获取 Twitter 数据
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { StoneCard, StoneButton, StoneInput, useToast } from '@/components/ui'
+import { HUDPanel, StoneButton, useToast } from '@/components/ui'
 import {
   RefreshCw,
   User,
@@ -21,6 +20,8 @@ import {
   Play,
   Trash2,
   Download,
+  Activity,
+  Twitter,
 } from 'lucide-react'
 import twitterService, {
   type TwitterUserInfo,
@@ -33,44 +34,36 @@ type AuthStep = 'init' | 'connected'
 
 export default function TwitterPage() {
   const toast = useToast()
-  // 认证状态
   const [authStep, setAuthStep] = useState<AuthStep>('init')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [userInfo, setUserInfo] = useState<TwitterUserInfo | null>(null)
 
-  // 认证表单
   const [authToken, setAuthToken] = useState('')
   const [ct0, setCt0] = useState('')
   const [proxy, setProxy] = useState('')
 
-  // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
   const [searchedUser, setSearchedUser] = useState<TwitterUserInfo | null>(null)
   const [searching, setSearching] = useState(false)
 
-  // 推文状态
   const [tweets, setTweets] = useState<TwitterTweet[]>([])
   const [tweetsLoading, setTweetsLoading] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
   const [includeRetweets, setIncludeRetweets] = useState(false)
 
-  // 搜索推文状态
   const [tweetSearchQuery, setTweetSearchQuery] = useState('')
   const [searchedTweets, setSearchedTweets] = useState<TwitterTweet[]>([])
   const [tweetSearchLoading, setTweetSearchLoading] = useState(false)
 
-  // 订阅状态
   const [subscribing, setSubscribing] = useState(false)
   const [subscriptions, setSubscriptions] = useState<SocialSession[]>([])
   const [subsLoading, setSubsLoading] = useState(false)
   const [fetchingId, setFetchingId] = useState<number | null>(null)
 
-  // 初始化时检查连接状态
   useEffect(() => {
     checkStatus()
     loadSubscriptions()
-    // 从 localStorage 加载保存的配置
     const saved = localStorage.getItem('twitter_config')
     if (saved) {
       try {
@@ -85,7 +78,6 @@ export default function TwitterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 加载 Twitter 订阅列表
   const loadSubscriptions = useCallback(async () => {
     setSubsLoading(true)
     try {
@@ -110,32 +102,23 @@ export default function TwitterPage() {
     }
   }
 
-  // 使用 Cookie 连接
   const handleConnect = async () => {
     if (!authToken || !ct0) {
       setError('请填写 auth_token 和 ct0')
       return
     }
-
     setLoading(true)
     setError('')
-
     try {
       const response = await twitterService.connect({
         auth_token: authToken,
         ct0: ct0,
         proxy: proxy || undefined,
       })
-
       if (response.success && response.user_info) {
         setUserInfo(response.user_info)
         setAuthStep('connected')
-        // 保存配置
-        localStorage.setItem('twitter_config', JSON.stringify({
-          auth_token: authToken,
-          ct0: ct0,
-          proxy: proxy,
-        }))
+        localStorage.setItem('twitter_config', JSON.stringify({ auth_token: authToken, ct0, proxy }))
       } else {
         setError(response.message)
       }
@@ -146,7 +129,6 @@ export default function TwitterPage() {
     }
   }
 
-  // 断开连接
   const handleDisconnect = async () => {
     try {
       await twitterService.disconnect()
@@ -160,18 +142,14 @@ export default function TwitterPage() {
     }
   }
 
-  // 搜索用户
   const handleSearchUser = async () => {
     if (!searchQuery.trim()) return
-
     setSearching(true)
     setError('')
     setSearchedUser(null)
     setTweets([])
-
     try {
       const response = await twitterService.getUser(searchQuery.trim().replace('@', ''))
-
       if (response.success && response.user) {
         setSearchedUser(response.user)
       } else {
@@ -184,12 +162,9 @@ export default function TwitterPage() {
     }
   }
 
-  // 获取用户推文
   const fetchTweets = async (loadMore = false) => {
     if (!searchedUser) return
-
     setTweetsLoading(true)
-
     try {
       const response = await twitterService.getTweets({
         user_id: searchedUser.id,
@@ -197,7 +172,6 @@ export default function TwitterPage() {
         cursor: loadMore ? nextCursor : undefined,
         include_retweets: includeRetweets,
       })
-
       if (response.success) {
         if (loadMore) {
           setTweets(prev => [...prev, ...response.tweets])
@@ -215,20 +189,13 @@ export default function TwitterPage() {
     }
   }
 
-  // 搜索推文
   const handleSearchTweets = async () => {
     if (!tweetSearchQuery.trim()) return
-
     setTweetSearchLoading(true)
     setError('')
     setSearchedTweets([])
-
     try {
-      const response = await twitterService.searchTweets({
-        query: tweetSearchQuery.trim(),
-        count: 30,
-      })
-
+      const response = await twitterService.searchTweets({ query: tweetSearchQuery.trim(), count: 30 })
       if (response.success) {
         setSearchedTweets(response.tweets)
       } else {
@@ -241,23 +208,19 @@ export default function TwitterPage() {
     }
   }
 
-  // 订阅用户
   const handleSubscribe = async () => {
     if (!searchedUser) return
-
     setSubscribing(true)
     setError('')
-
     try {
       const response = await socialService.subscribeTwitterUser({
         user_id: searchedUser.id,
         screen_name: searchedUser.screen_name || '',
         name: searchedUser.name || searchedUser.screen_name || '',
       })
-
       if (response.success) {
-        toast.success(`已订阅 @${searchedUser.screen_name}，可在"社交数据"页面查看`)
-        loadSubscriptions() // 刷新订阅列表
+        toast.success(`已订阅 @${searchedUser.screen_name}`)
+        loadSubscriptions()
       } else {
         setError(response.message || '订阅失败')
       }
@@ -268,7 +231,6 @@ export default function TwitterPage() {
     }
   }
 
-  // 采集订阅数据
   const handleFetchSubscription = async (id: number) => {
     setFetchingId(id)
     try {
@@ -286,7 +248,6 @@ export default function TwitterPage() {
     }
   }
 
-  // 删除订阅
   const handleDeleteSubscription = async (id: number, name: string) => {
     if (!confirm(`确定删除订阅 "${name}"？`)) return
     try {
@@ -297,7 +258,6 @@ export default function TwitterPage() {
     }
   }
 
-  // 格式化数字
   const formatNumber = (num?: number | string) => {
     if (!num) return '0'
     const n = typeof num === 'string' ? parseInt(num) : num
@@ -306,190 +266,123 @@ export default function TwitterPage() {
     return n.toString()
   }
 
-  // 渲染推文卡片
-  const renderTweet = (tweet: TwitterTweet) => (
-    <div key={tweet.id} className="p-4 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors">
-      {/* 用户信息 */}
+  const renderTweet = (tweet: TwitterTweet, index: number) => (
+    <div
+      key={tweet.id}
+      className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50 hover:border-blue-500/30 transition-all"
+      style={{ animation: `fadeInUp 0.3s ease-out ${index * 0.02}s both` }}
+    >
       {tweet.user && (
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           {tweet.user.profile_image_url ? (
-            <img
-              src={tweet.user.profile_image_url}
-              alt=""
-              className="w-8 h-8 rounded-full"
-            />
+            <img src={tweet.user.profile_image_url} alt="" className="w-8 h-8 rounded-full" />
           ) : (
             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
             </div>
           )}
           <div>
-            <div className="text-stone-900 text-sm font-medium">{tweet.user.name}</div>
-            <div className="text-stone-500 text-xs">@{tweet.user.screen_name}</div>
+            <div className="text-slate-200 text-sm font-medium">{tweet.user.name}</div>
+            <div className="text-slate-500 text-xs font-mono">@{tweet.user.screen_name}</div>
           </div>
           {tweet.is_retweet && (
-            <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-              转推
+            <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
+              RT
             </span>
           )}
         </div>
       )}
-
-      {/* 推文内容 */}
-      <p className="text-stone-700 text-sm whitespace-pre-wrap mb-3 line-clamp-6">
-        {tweet.text}
-      </p>
-
-      {/* 媒体 */}
+      <p className="text-slate-300 text-sm whitespace-pre-wrap mb-3 line-clamp-6">{tweet.text}</p>
       {tweet.media && tweet.media.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
           {tweet.media.map((m, i) => (
-            <div key={i} className="relative">
+            <div key={i}>
               {m.type === 'photo' && m.url && (
                 <a href={m.url} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={m.url}
-                    alt=""
-                    className="h-24 rounded-lg object-cover"
-                  />
+                  <img src={m.url} alt="" className="h-20 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity" />
                 </a>
               )}
               {(m.type === 'video' || m.type === 'animated_gif') && (
-                <a
-                  href={m.video_url || m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded"
-                >
+                <a href={m.video_url || m.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
                   <Play className="w-3 h-3" />
-                  {m.type === 'video' ? '视频' : 'GIF'}
+                  {m.type === 'video' ? 'VIDEO' : 'GIF'}
                 </a>
               )}
             </div>
           ))}
         </div>
       )}
-
-      {/* 链接 */}
       {tweet.urls && tweet.urls.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
           {tweet.urls.slice(0, 3).map((url, i) => (
-            <a
-              key={i}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-stone-600 hover:underline flex items-center gap-1"
-            >
-              <Link className="w-3 h-3" /> 链接 {i + 1}
+            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:underline flex items-center gap-1">
+              <Link className="w-3 h-3" /> LINK
             </a>
           ))}
         </div>
       )}
-
-      {/* 互动数据 */}
-      <div className="flex items-center gap-4 text-xs text-stone-400">
-        {tweet.created_at && (
-          <span>{tweet.created_at}</span>
-        )}
-        <span className="flex items-center gap-1">
-          <Heart className="w-3 h-3" /> {formatNumber(tweet.favorite_count)}
-        </span>
-        <span className="flex items-center gap-1">
-          <RefreshCw className="w-3 h-3" /> {formatNumber(tweet.retweet_count)}
-        </span>
-        <span className="flex items-center gap-1">
-          <MessageCircle className="w-3 h-3" /> {formatNumber(tweet.reply_count)}
-        </span>
-        {tweet.views_count && (
-          <span className="flex items-center gap-1">
-            <Eye className="w-3 h-3" /> {formatNumber(tweet.views_count)}
-          </span>
-        )}
+      <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
+        {tweet.created_at && <span>{tweet.created_at}</span>}
+        <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-pink-400" /> {formatNumber(tweet.favorite_count)}</span>
+        <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 text-emerald-400" /> {formatNumber(tweet.retweet_count)}</span>
+        <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3 text-blue-400" /> {formatNumber(tweet.reply_count)}</span>
+        {tweet.views_count && <span className="flex items-center gap-1"><Eye className="w-3 h-3 text-purple-400" /> {formatNumber(tweet.views_count)}</span>}
       </div>
     </div>
   )
 
-  // 渲染认证界面
   const renderAuthUI = () => {
     if (authStep === 'connected') return null
-
     return (
-      <StoneCard className="p-6 max-w-lg mx-auto">
-        <h2 className="text-lg font-semibold text-stone-900 mb-4">Twitter 登录</h2>
-
+      <HUDPanel title="Twitter 登录" subtitle="Cookie 认证" color="blue" className="max-w-lg mx-auto">
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
             {error}
           </div>
         )}
-
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-stone-600 mb-1">auth_token</label>
-            <StoneInput
-              value={authToken}
-              onChange={(e) => setAuthToken(e.target.value)}
-              placeholder="从浏览器 Cookie 获取"
-            />
+            <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">auth_token</label>
+            <input value={authToken} onChange={(e) => setAuthToken(e.target.value)} placeholder="从浏览器 Cookie 获取"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50" />
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-1">ct0</label>
-            <StoneInput
-              value={ct0}
-              onChange={(e) => setCt0(e.target.value)}
-              placeholder="从浏览器 Cookie 获取"
-            />
+            <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">ct0</label>
+            <input value={ct0} onChange={(e) => setCt0(e.target.value)} placeholder="从浏览器 Cookie 获取"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50" />
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-1">代理地址（可选）</label>
-            <StoneInput
-              value={proxy}
-              onChange={(e) => setProxy(e.target.value)}
-              placeholder="http://127.0.0.1:7890"
-            />
+            <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">代理地址（可选）</label>
+            <input value={proxy} onChange={(e) => setProxy(e.target.value)} placeholder="http://127.0.0.1:7890"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50" />
           </div>
-
-          <StoneButton
-            className="w-full"
-            onClick={handleConnect}
-            loading={loading}
-          >
-            连接 Twitter
+          <StoneButton className="w-full" onClick={handleConnect} loading={loading}>
+            <Twitter className="w-4 h-4 mr-2" />连接 Twitter
           </StoneButton>
-
-          <div className="p-4 bg-stone-50 rounded-lg">
-            <h4 className="text-sm text-stone-700 font-medium mb-2">如何获取 Cookie？</h4>
-            <ol className="text-xs text-stone-500 space-y-1 list-decimal list-inside">
-              <li>在浏览器中登录 <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-stone-700 hover:underline">x.com</a></li>
+          <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+            <h4 className="text-sm text-slate-300 font-medium mb-2">如何获取 Cookie？</h4>
+            <ol className="text-xs text-slate-500 space-y-1 list-decimal list-inside">
+              <li>在浏览器中登录 <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">x.com</a></li>
               <li>按 F12 打开开发者工具</li>
-              <li>切换到 Application（应用程序）选项卡</li>
-              <li>在左侧找到 Cookies → https://x.com</li>
-              <li>找到并复制 <code className="bg-stone-200 px-1 rounded">auth_token</code> 的值</li>
-              <li>找到并复制 <code className="bg-stone-200 px-1 rounded">ct0</code> 的值</li>
+              <li>切换到 Application 选项卡</li>
+              <li>找到 Cookies → https://x.com</li>
+              <li>复制 <code className="bg-slate-700 px-1 rounded text-cyan-400">auth_token</code> 和 <code className="bg-slate-700 px-1 rounded text-cyan-400">ct0</code></li>
             </ol>
           </div>
         </div>
-      </StoneCard>
+      </HUDPanel>
     )
   }
 
-  // 渲染已连接界面
   const renderConnectedUI = () => {
     if (authStep !== 'connected') return null
-
     return (
       <div className="space-y-6">
-        {/* 用户信息 */}
-        <StoneCard className="p-4">
+        <HUDPanel color="blue">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {userInfo?.profile_image_url ? (
-                <img
-                  src={userInfo.profile_image_url}
-                  alt=""
-                  className="w-12 h-12 rounded-full"
-                />
+                <img src={userInfo.profile_image_url} alt="" className="w-12 h-12 rounded-full border-2 border-blue-500/30" />
               ) : (
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
                   <User className="w-6 h-6 text-white" />
@@ -497,56 +390,33 @@ export default function TwitterPage() {
               )}
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-stone-900 font-medium">{userInfo?.name}</span>
-                  <CheckCircle className="w-4 h-4 text-blue-500" />
+                  <span className="text-slate-200 font-medium">{userInfo?.name}</span>
+                  <CheckCircle className="w-4 h-4 text-blue-400" />
                 </div>
-                <span className="text-sm text-stone-500">
-                  @{userInfo?.screen_name}
-                </span>
-                <div className="text-xs text-stone-400 mt-1 flex gap-3">
-                  <span>{formatNumber(userInfo?.followers_count)} 粉丝</span>
-                  <span>{formatNumber(userInfo?.friends_count)} 关注</span>
-                  <span>{formatNumber(userInfo?.statuses_count)} 推文</span>
+                <span className="text-sm text-slate-500 font-mono">@{userInfo?.screen_name}</span>
+                <div className="text-xs text-slate-600 mt-1 flex gap-3 font-mono">
+                  <span><span className="text-cyan-400">{formatNumber(userInfo?.followers_count)}</span> 粉丝</span>
+                  <span><span className="text-purple-400">{formatNumber(userInfo?.friends_count)}</span> 关注</span>
+                  <span><span className="text-pink-400">{formatNumber(userInfo?.statuses_count)}</span> 推文</span>
                 </div>
               </div>
             </div>
-            <StoneButton size="sm" variant="secondary" onClick={handleDisconnect}>
-              断开连接
-            </StoneButton>
+            <StoneButton size="sm" variant="secondary" onClick={handleDisconnect}>断开</StoneButton>
           </div>
-        </StoneCard>
+        </HUDPanel>
 
-        {/* 搜索用户并订阅 */}
-        <StoneCard className="p-4">
-          <h3 className="text-stone-900 font-medium mb-1">添加订阅</h3>
-          <p className="text-stone-500 text-sm mb-3">搜索 Twitter 用户，订阅后自动采集其推文</p>
+        <HUDPanel title="添加订阅" subtitle="搜索用户自动采集" color="purple">
           <div className="flex gap-2">
-            <StoneInput
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="输入用户名（如 elonmusk）或 @用户名"
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="输入用户名（如 elonmusk）"
               onKeyDown={(e) => e.key === 'Enter' && handleSearchUser()}
-              className="flex-1"
-            />
-            <StoneButton
-              icon={<Search className="w-4 h-4" />}
-              onClick={handleSearchUser}
-              loading={searching}
-            >
-              搜索
-            </StoneButton>
+              className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50" />
+            <StoneButton icon={<Search className="w-4 h-4" />} onClick={handleSearchUser} loading={searching}>搜索</StoneButton>
           </div>
-
-          {/* 搜索到的用户 */}
           {searchedUser && (
-            <div className="mt-4 p-4 bg-stone-50 rounded-lg">
+            <div className="mt-4 p-4 bg-slate-800/30 rounded-lg border border-purple-500/30">
               <div className="flex items-center gap-3">
                 {searchedUser.profile_image_url ? (
-                  <img
-                    src={searchedUser.profile_image_url}
-                    alt=""
-                    className="w-14 h-14 rounded-full"
-                  />
+                  <img src={searchedUser.profile_image_url} alt="" className="w-14 h-14 rounded-full" />
                 ) : (
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
                     <User className="w-7 h-7 text-white" />
@@ -554,211 +424,121 @@ export default function TwitterPage() {
                 )}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-stone-900 font-medium">{searchedUser.name}</span>
-                    {searchedUser.verified && (
-                      <CheckCircle className="w-4 h-4 text-blue-500" />
-                    )}
+                    <span className="text-slate-200 font-medium">{searchedUser.name}</span>
+                    {searchedUser.verified && <CheckCircle className="w-4 h-4 text-blue-400" />}
                   </div>
-                  <div className="text-sm text-stone-500">@{searchedUser.screen_name}</div>
-                  {searchedUser.description && (
-                    <p className="text-xs text-stone-400 mt-1 line-clamp-2">
-                      {searchedUser.description}
-                    </p>
-                  )}
-                  <div className="text-xs text-stone-400 mt-2 flex gap-3">
-                    <span>{formatNumber(searchedUser.followers_count)} 粉丝</span>
-                    <span>{formatNumber(searchedUser.friends_count)} 关注</span>
-                    <span>{formatNumber(searchedUser.statuses_count)} 推文</span>
-                    {searchedUser.media_count && (
-                      <span>{formatNumber(searchedUser.media_count)} 媒体</span>
-                    )}
+                  <div className="text-sm text-slate-500 font-mono">@{searchedUser.screen_name}</div>
+                  {searchedUser.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{searchedUser.description}</p>}
+                  <div className="text-xs text-slate-600 mt-2 flex gap-3 font-mono">
+                    <span><span className="text-cyan-400">{formatNumber(searchedUser.followers_count)}</span> 粉丝</span>
+                    <span><span className="text-purple-400">{formatNumber(searchedUser.friends_count)}</span> 关注</span>
                   </div>
                 </div>
               </div>
-              <div className="mt-3 flex gap-2">
-                <StoneButton
-                  size="sm"
-                  onClick={() => fetchTweets(false)}
-                  loading={tweetsLoading}
-                >
-                  获取推文
-                </StoneButton>
-                <StoneButton
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleSubscribe}
-                  loading={subscribing}
-                >
-                  订阅此用户
-                </StoneButton>
-                <label className="flex items-center gap-2 text-sm text-stone-600 ml-auto">
-                  <input
-                    type="checkbox"
-                    checked={includeRetweets}
-                    onChange={(e) => setIncludeRetweets(e.target.checked)}
-                    className="rounded border-stone-300"
-                  />
+              <div className="mt-3 flex gap-2 items-center">
+                <StoneButton size="sm" onClick={() => fetchTweets(false)} loading={tweetsLoading}>获取推文</StoneButton>
+                <StoneButton size="sm" variant="secondary" onClick={handleSubscribe} loading={subscribing}>订阅用户</StoneButton>
+                <label className="flex items-center gap-2 text-xs text-slate-500 ml-auto">
+                  <input type="checkbox" checked={includeRetweets} onChange={(e) => setIncludeRetweets(e.target.checked)} className="rounded border-slate-600 bg-slate-800" />
                   包含转推
                 </label>
               </div>
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
-        {/* 用户推文列表 */}
         {tweets.length > 0 && (
-          <StoneCard className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-stone-900 font-medium">
-                {searchedUser?.name} 的推文 ({tweets.length})
-              </h3>
-              <StoneButton
-                size="sm"
-                variant="secondary"
-                icon={<RefreshCw className="w-4 h-4" />}
-                onClick={() => fetchTweets(false)}
-                loading={tweetsLoading}
-              />
-            </div>
+          <HUDPanel title={`${searchedUser?.name} 的推文`} subtitle={`${tweets.length} 条`} color="cyan"
+            headerAction={<StoneButton size="sm" variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={() => fetchTweets(false)} loading={tweetsLoading} />}>
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {tweets.map(tweet => renderTweet(tweet))}
+              {tweets.map((tweet, i) => renderTweet(tweet, i))}
             </div>
-            {nextCursor && (
-              <StoneButton
-                className="w-full mt-4"
-                variant="secondary"
-                onClick={() => fetchTweets(true)}
-                loading={tweetsLoading}
-              >
-                加载更多
-              </StoneButton>
-            )}
-          </StoneCard>
+            {nextCursor && <StoneButton className="w-full mt-4" variant="secondary" onClick={() => fetchTweets(true)} loading={tweetsLoading}>加载更多</StoneButton>}
+          </HUDPanel>
         )}
 
-        {/* 已订阅列表 */}
-        <StoneCard className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-stone-900 font-medium">已订阅用户 ({subscriptions.length})</h3>
-            <StoneButton
-              size="sm"
-              variant="secondary"
-              icon={<RefreshCw className="w-4 h-4" />}
-              onClick={loadSubscriptions}
-              loading={subsLoading}
-            />
-          </div>
+        <HUDPanel title="已订阅用户" subtitle={`${subscriptions.length} 个`} color="green"
+          headerAction={<StoneButton size="sm" variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadSubscriptions} loading={subsLoading} />}>
           {subsLoading ? (
-            <div className="text-center py-4 text-stone-500">加载中...</div>
+            <div className="text-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-400 mx-auto"></div></div>
           ) : subscriptions.length === 0 ? (
-            <div className="text-center py-4 text-stone-500">
-              暂无订阅，搜索用户后点击"订阅此用户"添加
-            </div>
+            <div className="text-center py-8 text-slate-500">暂无订阅，搜索用户后点击"订阅用户"添加</div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {subscriptions.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="p-3 bg-stone-50 rounded-lg flex items-center justify-between hover:bg-stone-100"
-                >
+                <div key={sub.id} className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50 flex items-center justify-between hover:border-emerald-500/30 transition-all">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-stone-900 font-medium truncate">{sub.target_name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {sub.status === 'active' ? '运行中' : '已暂停'}
+                      <span className="text-slate-200 font-medium truncate">{sub.target_name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${sub.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'}`}>
+                        {sub.status === 'active' ? 'ACTIVE' : 'PAUSED'}
                       </span>
                     </div>
-                    <div className="text-sm text-stone-500">{sub.target_username}</div>
-                    <div className="text-xs text-stone-400 mt-1">
-                      {sub.message_count} 条消息 · 采集间隔 {sub.fetch_interval / 60} 分钟
-                    </div>
+                    <div className="text-sm text-slate-500 font-mono">@{sub.target_username}</div>
+                    <div className="text-xs text-slate-600 mt-1 font-mono">{sub.message_count} MSG · {sub.fetch_interval / 60}m INTERVAL</div>
                   </div>
                   <div className="flex items-center gap-1 ml-2">
-                    <button
-                      onClick={() => handleFetchSubscription(sub.id)}
-                      disabled={fetchingId === sub.id}
-                      className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
-                      title="立即采集"
-                    >
-                      {fetchingId === sub.id ? (
-                        <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-900 rounded-full animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4 text-stone-500" />
-                      )}
+                    <button onClick={() => handleFetchSubscription(sub.id)} disabled={fetchingId === sub.id} className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="立即采集">
+                      {fetchingId === sub.id ? <div className="w-4 h-4 border-2 border-slate-600 border-t-emerald-400 rounded-full animate-spin" /> : <Download className="w-4 h-4 text-slate-500 hover:text-emerald-400" />}
                     </button>
-                    <button
-                      onClick={() => handleDeleteSubscription(sub.id, sub.target_name)}
-                      className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      title="删除订阅"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                    <button onClick={() => handleDeleteSubscription(sub.id, sub.target_name)} className="p-2 hover:bg-red-500/20 rounded-lg transition-colors" title="删除">
+                      <Trash2 className="w-4 h-4 text-red-400" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
-        {/* 搜索推文 */}
-        <StoneCard className="p-4">
-          <h3 className="text-stone-900 font-medium mb-3">搜索推文</h3>
+        <HUDPanel title="搜索推文" color="cyan">
           <div className="flex gap-2">
-            <StoneInput
-              value={tweetSearchQuery}
-              onChange={(e) => setTweetSearchQuery(e.target.value)}
-              placeholder="输入关键词搜索推文"
+            <input value={tweetSearchQuery} onChange={(e) => setTweetSearchQuery(e.target.value)} placeholder="输入关键词搜索推文"
               onKeyDown={(e) => e.key === 'Enter' && handleSearchTweets()}
-              className="flex-1"
-            />
-            <StoneButton
-              icon={<Search className="w-4 h-4" />}
-              onClick={handleSearchTweets}
-              loading={tweetSearchLoading}
-            >
-              搜索
-            </StoneButton>
+              className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50" />
+            <StoneButton icon={<Search className="w-4 h-4" />} onClick={handleSearchTweets} loading={tweetSearchLoading}>搜索</StoneButton>
           </div>
-
-          {/* 搜索结果 */}
           {searchedTweets.length > 0 && (
             <div className="mt-4 space-y-3 max-h-[400px] overflow-y-auto">
-              <div className="text-sm text-stone-500">找到 {searchedTweets.length} 条推文</div>
-              {searchedTweets.map(tweet => renderTweet(tweet))}
+              <div className="text-sm text-slate-500">找到 <span className="text-cyan-400 font-mono">{searchedTweets.length}</span> 条推文</div>
+              {searchedTweets.map((tweet, i) => renderTweet(tweet, i))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-in">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Twitter 管理</h1>
-          <p className="text-stone-500 mt-1">
-            {authStep === 'connected'
-              ? `已连接 @${userInfo?.screen_name}`
-              : '使用 Cookie 认证获取 Twitter 数据'}
+          <h1 className="text-2xl font-bold text-blue-400 tracking-wide flex items-center gap-2">
+            <Twitter className="w-6 h-6" /> Twitter 管理
+          </h1>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>{authStep === 'connected' ? `已连接 @${userInfo?.screen_name}` : 'Cookie 认证获取数据'}</span>
           </p>
         </div>
       </div>
 
       {error && authStep === 'connected' && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center justify-between">
+        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError('')}>
-            <XCircle className="w-4 h-4" />
-          </button>
+          <button onClick={() => setError('')}><XCircle className="w-4 h-4" /></button>
         </div>
       )}
 
       {renderAuthUI()}
       {renderConnectedUI()}
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }

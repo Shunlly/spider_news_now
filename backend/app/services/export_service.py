@@ -12,14 +12,14 @@ import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.models.export_task import ExportTask, ExportFormat, ExportStatus
+from app.models.export_task import ExportFormat, ExportStatus, ExportTask
 from app.models.news_article import NewsArticle
 from app.models.social_message import SocialMessage
 from app.models.social_session import SocialSession
@@ -55,7 +55,7 @@ class ExportService:
     def __init__(
         self,
         db: AsyncSession,
-        storage_service: Optional[StorageService] = None,
+        storage_service: StorageService | None = None,
     ):
         """
         初始化导出服务
@@ -70,15 +70,17 @@ class ExportService:
 
     async def create_export_task(
         self,
+        user_id: str,
         data_source: DataSource,
         export_format: ExportFormat,
-        filters: Optional[Dict[str, Any]] = None,
-        filename: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        filename: str | None = None,
     ) -> ExportTask:
         """
         创建导出任务
 
         Args:
+            user_id: 用户ID
             data_source: 数据源类型
             export_format: 导出格式
             filters: 过滤条件
@@ -101,6 +103,7 @@ class ExportService:
 
         # 创建任务记录
         task = ExportTask(
+            user_id=user_id,
             data_source=data_source.value,
             export_format=export_format.value,  # 使用枚举值
             filters=json.dumps(filters or {}),
@@ -116,7 +119,7 @@ class ExportService:
 
         return task
 
-    async def execute_export(self, task_id: int) -> ExportTask:
+    async def execute_export(self, task_id: str) -> ExportTask:
         """
         执行导出任务
 
@@ -201,8 +204,8 @@ class ExportService:
     async def _fetch_data(
         self,
         data_source: DataSource,
-        filters: Dict[str, Any],
-    ) -> tuple[List[Dict[str, Any]], int]:
+        filters: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
         """
         获取导出数据
 
@@ -224,8 +227,8 @@ class ExportService:
 
     async def _fetch_news_data(
         self,
-        filters: Dict[str, Any],
-    ) -> tuple[List[Dict[str, Any]], int]:
+        filters: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
         """获取新闻数据"""
         stmt = select(NewsArticle)
 
@@ -262,8 +265,8 @@ class ExportService:
 
     async def _fetch_social_sessions(
         self,
-        filters: Dict[str, Any],
-    ) -> tuple[List[Dict[str, Any]], int]:
+        filters: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
         """获取社交会话数据"""
         stmt = select(SocialSession)
 
@@ -296,8 +299,8 @@ class ExportService:
 
     async def _fetch_social_messages(
         self,
-        filters: Dict[str, Any],
-    ) -> tuple[List[Dict[str, Any]], int]:
+        filters: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], int]:
         """获取社交消息数据"""
         stmt = select(SocialMessage)
 
@@ -337,7 +340,7 @@ class ExportService:
 
     async def _export_to_csv(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         data_source: DataSource,
     ) -> str:
         """导出为 CSV 格式"""
@@ -353,22 +356,22 @@ class ExportService:
 
     async def _export_to_json(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
     ) -> str:
         """导出为 JSON 格式"""
         return json.dumps(data, ensure_ascii=False, indent=2)
 
     async def _export_to_excel(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         data_source: DataSource,
     ) -> bytes:
         """导出为 Excel 格式"""
         try:
             import openpyxl  # noqa: F401  检查库是否可用
             from openpyxl import Workbook
-        except ImportError:
-            raise ImportError("需要安装 openpyxl 库才能导出 Excel 格式")
+        except ImportError as exc:
+            raise ImportError("需要安装 openpyxl 库才能导出 Excel 格式") from exc
 
         wb = Workbook()
         ws = wb.active
@@ -398,7 +401,7 @@ class ExportService:
 
     async def _save_export_file(
         self,
-        content: Union[str, bytes],
+        content: str | bytes,
         filename: str,
         content_type: str,
     ) -> str:
@@ -438,7 +441,7 @@ class ExportService:
 
         return str(file_path)
 
-    async def get_download_url(self, task: ExportTask) -> Optional[str]:
+    async def get_download_url(self, task: ExportTask) -> str | None:
         """
         获取导出文件下载 URL
 

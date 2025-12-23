@@ -31,6 +31,7 @@ export interface NewsListResponse {
 export interface NewsStatistics {
   total_articles: number
   articles_today: number
+  articles_yesterday: number
   sources_active: number
   sources_failed: number
   last_scrape_time?: string

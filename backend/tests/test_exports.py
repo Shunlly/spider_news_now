@@ -23,34 +23,34 @@ class TestExportsAPI:
         """Test creating a news export in CSV format."""
         export_request = {
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         }
         response = await client.post("/api/v1/exports", json=export_request)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["task"]["data_source"] == "news"
-        assert data["task"]["export_format"] == "csv"
-        assert data["task"]["status"] in ["pending", "processing"]
+        assert data["task"]["export_format"] == "CSV"
+        assert data["task"]["status"] in ["PENDING", "PROCESSING"]
 
     @pytest.mark.asyncio
     async def test_create_export_news_json(self, client: AsyncClient):
         """Test creating a news export in JSON format."""
         export_request = {
             "data_source": "news",
-            "export_format": "json",
+            "export_format": "JSON",
         }
         response = await client.post("/api/v1/exports", json=export_request)
         assert response.status_code == 200
         data = response.json()
-        assert data["task"]["export_format"] == "json"
+        assert data["task"]["export_format"] == "JSON"
 
     @pytest.mark.asyncio
     async def test_create_export_social_sessions(self, client: AsyncClient):
         """Test creating a social sessions export."""
         export_request = {
             "data_source": "social_sessions",
-            "export_format": "csv",
+            "export_format": "CSV",
         }
         response = await client.post("/api/v1/exports", json=export_request)
         assert response.status_code == 200
@@ -62,7 +62,7 @@ class TestExportsAPI:
         """Test creating a social messages export."""
         export_request = {
             "data_source": "social_messages",
-            "export_format": "csv",
+            "export_format": "CSV",
         }
         response = await client.post("/api/v1/exports", json=export_request)
         assert response.status_code == 200
@@ -74,7 +74,7 @@ class TestExportsAPI:
         """Test creating an export with filters."""
         export_request = {
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
             "filters": {
                 "source_key": "test_source",
                 "start_date": "2024-01-01",
@@ -90,7 +90,7 @@ class TestExportsAPI:
         """Test creating an export with custom filename."""
         export_request = {
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
             "filename": "custom_export.csv",
         }
         response = await client.post("/api/v1/exports", json=export_request)
@@ -104,7 +104,7 @@ class TestExportsAPI:
         # Create export
         await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # List exports
@@ -119,11 +119,11 @@ class TestExportsAPI:
         # Create export
         await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Filter by pending status
-        response = await client.get("/api/v1/exports?status=pending")
+        response = await client.get("/api/v1/exports?status=PENDING")
         assert response.status_code == 200
         data = response.json()
         # Note: Task might have already started processing
@@ -135,13 +135,13 @@ class TestExportsAPI:
         # Create news export
         await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Create social export
         await client.post("/api/v1/exports", json={
             "data_source": "social_sessions",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
 
         # Filter by news
@@ -157,7 +157,7 @@ class TestExportsAPI:
         # Create export
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -170,7 +170,7 @@ class TestExportsAPI:
     @pytest.mark.asyncio
     async def test_get_export_task_not_found(self, client: AsyncClient):
         """Test getting a non-existent export task."""
-        response = await client.get("/api/v1/exports/99999")
+        response = await client.get("/api/v1/exports/00000000-0000-0000-0000-000000000000")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -179,7 +179,7 @@ class TestExportsAPI:
         # Create export
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -199,7 +199,7 @@ class TestExportsAPI:
         # Create export (will be in pending state)
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 
@@ -213,7 +213,7 @@ class TestExportsAPI:
         """Test that export task has proper timestamps."""
         response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         assert response.status_code == 200
         data = response.json()
@@ -226,7 +226,7 @@ class TestExportsAPI:
         """Test that export filename is auto-generated."""
         response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         assert response.status_code == 200
         data = response.json()
@@ -250,7 +250,7 @@ class TestExportsAPI:
         # Create export
         create_response = await client.post("/api/v1/exports", json={
             "data_source": "news",
-            "export_format": "csv",
+            "export_format": "CSV",
         })
         task_id = create_response.json()["task"]["id"]
 

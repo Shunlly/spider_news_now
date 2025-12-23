@@ -1,6 +1,8 @@
 /**
- * StatCard 组件
- * Statistics Card Component with Stone theme
+ * HUD 风格 StatCard 组件
+ * HUD-style Statistics Card Component
+ *
+ * 深色主题 + 发光效果
  */
 
 import { ReactNode } from 'react'
@@ -26,7 +28,7 @@ export function StatCard({
   value,
   suffix,
   icon,
-  iconBg = 'bg-stone-100',
+  iconBg = 'bg-cyan-500/20',
   loading = false,
   trend,
   className,
@@ -35,14 +37,14 @@ export function StatCard({
     <StoneCard className={clsx('p-4 h-full', className)} hover={false}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm text-stone-500 font-medium">{title}</p>
+          <p className="text-sm text-slate-400 font-medium">{title}</p>
           {loading ? (
-            <div className="h-9 w-24 bg-stone-100 rounded animate-pulse mt-2" />
+            <div className="h-9 w-24 bg-slate-700/50 rounded animate-pulse mt-2" />
           ) : (
-            <p className="text-3xl font-bold text-stone-900 mt-2 tabular-nums">
+            <p className="text-3xl font-bold text-slate-100 mt-2 tabular-nums font-mono">
               {typeof value === 'number' ? value.toLocaleString() : value}
               {suffix && (
-                <span className="text-lg font-normal text-stone-400 ml-1">
+                <span className="text-lg font-normal text-slate-500 ml-1">
                   {suffix}
                 </span>
               )}
@@ -51,8 +53,8 @@ export function StatCard({
           {trend && (
             <p
               className={clsx(
-                'text-sm mt-2 flex items-center gap-1',
-                trend.isUp ? 'text-green-600' : 'text-red-600'
+                'text-sm mt-2 flex items-center gap-1 font-mono',
+                trend.isUp ? 'text-emerald-400' : 'text-red-400'
               )}
             >
               {trend.isUp ? '↑' : '↓'} {Math.abs(trend.value)}%
@@ -62,11 +64,11 @@ export function StatCard({
         {icon && (
           <div
             className={clsx(
-              'w-10 h-10 rounded-lg flex items-center justify-center',
+              'w-10 h-10 rounded-lg flex items-center justify-center border border-cyan-500/30',
               iconBg
             )}
           >
-            <span className="text-stone-600">{icon}</span>
+            <span className="text-cyan-400">{icon}</span>
           </div>
         )}
       </div>

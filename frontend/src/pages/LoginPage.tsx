@@ -9,8 +9,8 @@
  */
 
 import { useState, useCallback, useEffect, FormEvent } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { User, Lock, Eye, EyeOff, UserPlus } from 'lucide-react';
 import ImageCaptcha from '../components/ImageCaptcha';
 import { useAuthStore } from '../stores/authStore';
 import { StoneButton, StoneInput } from '@/components/ui';
@@ -217,7 +217,7 @@ const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -230,8 +230,8 @@ const LoginPage: React.FC = () => {
           {/* 错误/消息提示 */}
           {(error || message) && (
             <div className={`login-error ${
-              message?.type === 'success' ? '!bg-green-50 !border-green-200 !text-green-600' :
-              message?.type === 'warning' ? '!bg-yellow-50 !border-yellow-200 !text-yellow-600' : ''
+              message?.type === 'success' ? '!bg-emerald-500/10 !border-emerald-500/30 !text-emerald-400' :
+              message?.type === 'warning' ? '!bg-yellow-500/10 !border-yellow-500/30 !text-yellow-400' : ''
             }`}>
               {message?.text || error}
             </div>
@@ -286,6 +286,17 @@ const LoginPage: React.FC = () => {
             </StoneButton>
           )}
         </form>
+
+        {/* 注册链接 */}
+        <div className="login-footer">
+          <Link
+            to="/register"
+            className="flex items-center justify-center gap-2 text-slate-400 hover:text-cyan-400 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            没有账号？立即注册
+          </Link>
+        </div>
       </div>
     </div>
   );

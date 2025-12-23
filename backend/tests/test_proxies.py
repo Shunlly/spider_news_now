@@ -184,12 +184,12 @@ class TestProxiesAPI:
         assert data["proxy"]["enabled"] is False
 
     @pytest.mark.asyncio
-    async def test_proxy_status_unknown_on_create(self, client: AsyncClient, sample_proxy):
-        """Test that proxy status is unknown on creation."""
+    async def test_proxy_status_active_on_create(self, client: AsyncClient, sample_proxy):
+        """Test that proxy status is active on creation (default enabled)."""
         response = await client.post("/api/v1/proxies", json=sample_proxy)
         assert response.status_code == 200
         data = response.json()
-        assert data["proxy"]["status"] == "unknown"
+        assert data["proxy"]["status"] == "active"
 
     @pytest.mark.asyncio
     async def test_proxy_statistics_initialized(self, client: AsyncClient, sample_proxy):

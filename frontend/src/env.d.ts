@@ -7,6 +7,8 @@ declare interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
   /** 应用标题 */
   readonly VITE_APP_TITLE: string
+  /** WebSocket 服务器地址 (可选) */
+  readonly VITE_WS_URL?: string
 }
 
 // 全局类型扩展

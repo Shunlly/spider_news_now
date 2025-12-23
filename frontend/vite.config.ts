@@ -40,8 +40,8 @@ export default defineConfig({
         name: 'Spider News Dashboard',
         short_name: 'Spider News',
         description: '新闻爬虫管理系统',
-        theme_color: '#1c1917',
-        background_color: '#e7e5e4',
+        theme_color: '#020617',
+        background_color: '#020617',
         display: 'standalone',
         icons: [
           {
@@ -132,7 +132,9 @@ export default defineConfig({
 
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // 生产环境禁用 sourcemap（减少构建体积，保护源码）
+    // 开发/调试时可通过 npm run build -- --sourcemap 临时启用
+    sourcemap: false,
     // 优化构建配置
     rollupOptions: {
       output: {

@@ -3,7 +3,7 @@
   <!-- 首页 -->
   <url>
     <loc>https://your-domain.com/</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -11,7 +11,7 @@
   <!-- 仪表盘 -->
   <url>
     <loc>https://your-domain.com/dashboard</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -19,7 +19,7 @@
   <!-- 新闻管理 -->
   <url>
     <loc>https://your-domain.com/news</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -27,7 +27,7 @@
   <!-- 社交数据 -->
   <url>
     <loc>https://your-domain.com/social</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
@@ -35,7 +35,7 @@
   <!-- Telegram -->
   <url>
     <loc>https://your-domain.com/telegram</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -43,7 +43,7 @@
   <!-- Twitter -->
   <url>
     <loc>https://your-domain.com/twitter</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -51,7 +51,7 @@
   <!-- 搜索 -->
   <url>
     <loc>https://your-domain.com/search</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
@@ -59,7 +59,7 @@
   <!-- 设置 -->
   <url>
     <loc>https://your-domain.com/settings</loc>
-    <lastmod>2024-01-01</lastmod>
+    <lastmod>2025-12-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

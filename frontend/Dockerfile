@@ -29,6 +29,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Set correct permissions for static files
+RUN chmod -R 755 /usr/share/nginx/html && \
+    find /usr/share/nginx/html -type f -exec chmod 644 {} \;
+
 # Security: Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup && \
@@ -38,7 +42,7 @@ RUN addgroup -g 1001 -S appgroup && \
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:80/health || exit 1
+    CMD wget --quiet --tries=1 -O /dev/null http://127.0.0.1:80/health || exit 1
 
 # Expose port
 EXPOSE 80

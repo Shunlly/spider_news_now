@@ -7,7 +7,6 @@ Local File Storage Implementation
 
 import logging
 from pathlib import Path
-from typing import Optional
 from urllib.parse import quote
 
 import aiofiles
@@ -29,8 +28,8 @@ class LocalStorage(BaseStorageProvider):
 
     def __init__(
         self,
-        base_path: Optional[str] = None,
-        base_url: Optional[str] = None,
+        base_path: str | None = None,
+        base_url: str | None = None,
     ):
         """
         初始化本地存储

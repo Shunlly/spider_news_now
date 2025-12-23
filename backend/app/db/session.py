@@ -1,6 +1,6 @@
 """Async database session management."""
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -27,6 +27,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 # Alias for background tasks
 async_session_maker = AsyncSessionLocal
+async_session_factory = AsyncSessionLocal  # Legacy alias
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

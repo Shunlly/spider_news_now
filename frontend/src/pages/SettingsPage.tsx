@@ -1,12 +1,12 @@
 /**
- * 系统设置页面
- * System Settings Page
+ * HUD 风格系统设置页面
+ * HUD-style System Settings Page
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { StoneCard, StoneButton, StoneInput, StoneSelect, StoneModal } from '@/components/ui'
+import { HUDPanel, StoneButton, StoneInput, StoneSelect, StoneModal } from '@/components/ui'
 import {
   Plus,
   RefreshCw,
@@ -15,6 +15,9 @@ import {
   X,
   FlaskConical,
   Star,
+  Shield,
+  Globe,
+  Activity,
 } from 'lucide-react'
 import {
   credentialsService,
@@ -34,10 +37,10 @@ const credentialStatusLabels: Record<CredentialStatus, string> = {
 }
 
 const credentialStatusColors: Record<CredentialStatus, string> = {
-  active: 'bg-green-100 text-green-700',
-  inactive: 'bg-stone-100 text-stone-600',
-  revoked: 'bg-red-100 text-red-700',
-  rate_limited: 'bg-yellow-100 text-yellow-700',
+  active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  inactive: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
+  revoked: 'bg-red-500/20 text-red-400 border border-red-500/30',
+  rate_limited: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
 }
 
 const proxyStatusLabels: Record<ProxyStatus, string> = {
@@ -47,9 +50,9 @@ const proxyStatusLabels: Record<ProxyStatus, string> = {
 }
 
 const proxyStatusColors: Record<ProxyStatus, string> = {
-  active: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-700',
-  unknown: 'bg-stone-100 text-stone-600',
+  active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  failed: 'bg-red-500/20 text-red-400 border border-red-500/30',
+  unknown: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
 }
 
 export default function SettingsPage() {
@@ -203,18 +206,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       {/* 页面标题 */}
-      <div>
-        <h1 className="text-2xl font-bold text-stone-900">系统设置</h1>
-        <p className="text-stone-500 mt-1">配置系统参数和凭证</p>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-cyan-400 tracking-wide">系统设置</h1>
+        <p className="text-slate-500 mt-1 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-emerald-400" />
+          <span>配置系统参数和凭证</span>
+        </p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* 凭证管理 */}
-        <StoneCard className="overflow-hidden">
-          <div className="p-4 border-b border-stone-200 flex items-center justify-between">
-            <h3 className="font-semibold text-stone-900">API 凭证</h3>
+        <HUDPanel
+          title="API 凭证"
+          subtitle="平台访问令牌"
+          color="purple"
+          headerAction={
             <div className="flex items-center gap-2">
               <StoneButton
                 size="sm"
@@ -231,69 +239,73 @@ export default function SettingsPage() {
                 添加
               </StoneButton>
             </div>
-          </div>
-
+          }
+        >
           {credentialsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-stone-900"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
             </div>
           ) : credentials.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-stone-500">暂无凭证</p>
-              <p className="text-stone-400 text-sm mt-1">点击添加按钮创建新凭证</p>
+              <Shield className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-400">暂无凭证</p>
+              <p className="text-slate-500 text-sm mt-1">点击添加按钮创建新凭证</p>
             </div>
           ) : (
-            <div className="divide-y divide-stone-100 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {credentials.map((credential) => (
-                <div key={credential.id} className="p-4 hover:bg-stone-50">
+                <div
+                  key={credential.id}
+                  className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:border-purple-500/30 transition-all"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-stone-900">{credential.name}</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-slate-200">{credential.name}</span>
                         {credential.is_default && (
-                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                          <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
                         )}
                         <span className={`text-xs px-2 py-0.5 rounded ${credentialStatusColors[credential.status]}`}>
                           {credentialStatusLabels[credential.status]}
                         </span>
                       </div>
-                      <div className="text-xs text-stone-400">
-                        {credential.platform === 'twitter' ? 'Twitter' : 'Telegram'} |
-                        请求 {credential.request_count} |
-                        错误 {credential.error_count}
+                      <div className="text-xs text-slate-500 font-mono">
+                        {credential.platform === 'twitter' ? 'TWITTER' : 'TELEGRAM'} |
+                        REQ: <span className="text-cyan-400">{credential.request_count}</span> |
+                        ERR: <span className="text-red-400">{credential.error_count}</span>
                       </div>
-                      <div className="text-xs text-stone-400 mt-1">
-                        最后使用: {formatDate(credential.last_used_at)}
+                      <div className="text-xs text-slate-600 mt-1">
+                        LAST: {formatDate(credential.last_used_at)}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       {!credential.is_default && (
                         <button
                           onClick={() => handleSetDefaultCredential(credential.id)}
-                          className="p-2 hover:bg-stone-100 rounded-lg"
+                          className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                           title="设为默认"
                         >
-                          <Star className="w-4 h-4 text-stone-400" />
+                          <Star className="w-4 h-4 text-slate-500 hover:text-yellow-400" />
                         </button>
                       )}
                       <button
                         onClick={() => handleTestCredential(credential.id)}
                         disabled={testingCredentialId === credential.id}
-                        className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-50"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50"
                         title="测试"
                       >
                         {testingCredentialId === credential.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-stone-900"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
                         ) : (
-                          <FlaskConical className="w-4 h-4 text-stone-500" />
+                          <FlaskConical className="w-4 h-4 text-slate-500 hover:text-purple-400" />
                         )}
                       </button>
                       <button
                         onClick={() => handleDeleteCredential(credential.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg"
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
                         title="删除"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4 text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -301,12 +313,14 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
         {/* 代理管理 */}
-        <StoneCard className="overflow-hidden">
-          <div className="p-4 border-b border-stone-200 flex items-center justify-between">
-            <h3 className="font-semibold text-stone-900">代理配置</h3>
+        <HUDPanel
+          title="代理配置"
+          subtitle="网络代理设置"
+          color="cyan"
+          headerAction={
             <div className="flex items-center gap-2">
               <StoneButton
                 size="sm"
@@ -323,74 +337,79 @@ export default function SettingsPage() {
                 添加
               </StoneButton>
             </div>
-          </div>
-
+          }
+        >
           {proxiesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-stone-900"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
             </div>
           ) : proxies.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-stone-500">暂无代理</p>
-              <p className="text-stone-400 text-sm mt-1">点击添加按钮创建新代理</p>
+              <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-400">暂无代理</p>
+              <p className="text-slate-500 text-sm mt-1">点击添加按钮创建新代理</p>
             </div>
           ) : (
-            <div className="divide-y divide-stone-100 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {proxies.map((proxy) => (
-                <div key={proxy.id} className="p-4 hover:bg-stone-50">
+                <div
+                  key={proxy.id}
+                  className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:border-cyan-500/30 transition-all"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-stone-900">{proxy.name}</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-slate-200">{proxy.name}</span>
                         <span className={`text-xs px-2 py-0.5 rounded ${proxyStatusColors[proxy.status]}`}>
                           {proxyStatusLabels[proxy.status]}
                         </span>
                         {!proxy.enabled && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-stone-100 text-stone-500">
+                          <span className="text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-500 border border-slate-600/30">
                             已禁用
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-stone-400">
-                        {proxy.protocol}://{proxy.host}:{proxy.port}
+                      <div className="text-xs text-cyan-400 font-mono">
+                        {proxy.protocol.toUpperCase()}://{proxy.host}:{proxy.port}
                       </div>
-                      <div className="text-xs text-stone-400 mt-1">
-                        成功 {proxy.success_count} / 失败 {proxy.failure_count}
+                      <div className="text-xs text-slate-500 mt-1 font-mono">
+                        OK: <span className="text-emerald-400">{proxy.success_count}</span> /
+                        FAIL: <span className="text-red-400">{proxy.failure_count}</span>
                         {proxy.avg_response_time && (
-                          <span> | 平均响应 {proxy.avg_response_time.toFixed(0)}ms</span>
+                          <span> | RTT: <span className="text-yellow-400">{proxy.avg_response_time.toFixed(0)}ms</span></span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleToggleProxy(proxy)}
-                        className="p-2 hover:bg-stone-100 rounded-lg"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                         title={proxy.enabled ? '禁用' : '启用'}
                       >
                         {proxy.enabled ? (
-                          <Check className="w-4 h-4 text-green-500" />
+                          <Check className="w-4 h-4 text-emerald-400" />
                         ) : (
-                          <X className="w-4 h-4 text-stone-400" />
+                          <X className="w-4 h-4 text-slate-500" />
                         )}
                       </button>
                       <button
                         onClick={() => handleTestProxy(proxy.id)}
                         disabled={testingProxyId === proxy.id}
-                        className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-50"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50"
                         title="测试"
                       >
                         {testingProxyId === proxy.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-stone-900"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
                         ) : (
-                          <FlaskConical className="w-4 h-4 text-stone-500" />
+                          <FlaskConical className="w-4 h-4 text-slate-500 hover:text-cyan-400" />
                         )}
                       </button>
                       <button
                         onClick={() => handleDeleteProxy(proxy.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg"
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
                         title="删除"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4 text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -398,7 +417,7 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
       </div>
 
       {/* 添加凭证模态框 */}
@@ -410,7 +429,7 @@ export default function SettingsPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-stone-600 mb-2">凭证名称</label>
+            <label className="block text-sm text-slate-400 mb-2">凭证名称</label>
             <StoneInput
               value={newCredential.name}
               onChange={(e) => setNewCredential({ ...newCredential, name: e.target.value })}
@@ -418,7 +437,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">平台</label>
+            <label className="block text-sm text-slate-400 mb-2">平台</label>
             <StoneSelect
               value={newCredential.platform}
               onChange={(e) => setNewCredential({
@@ -434,7 +453,7 @@ export default function SettingsPage() {
           </div>
           {newCredential.platform === 'twitter' && (
             <div>
-              <label className="block text-sm text-stone-600 mb-2">Bearer Token</label>
+              <label className="block text-sm text-slate-400 mb-2">Bearer Token</label>
               <StoneInput
                 type="password"
                 value={newCredential.credentials.bearer_token || ''}
@@ -448,7 +467,7 @@ export default function SettingsPage() {
           )}
           {newCredential.platform === 'telegram' && (
             <div>
-              <label className="block text-sm text-stone-600 mb-2">Bot Token</label>
+              <label className="block text-sm text-slate-400 mb-2">Bot Token</label>
               <StoneInput
                 type="password"
                 value={newCredential.credentials.bot_token || ''}
@@ -481,7 +500,7 @@ export default function SettingsPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-stone-600 mb-2">代理名称</label>
+            <label className="block text-sm text-slate-400 mb-2">代理名称</label>
             <StoneInput
               value={newProxy.name}
               onChange={(e) => setNewProxy({ ...newProxy, name: e.target.value })}
@@ -490,7 +509,7 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-stone-600 mb-2">协议</label>
+              <label className="block text-sm text-slate-400 mb-2">协议</label>
               <StoneSelect
                 value={newProxy.protocol}
                 onChange={(e) => setNewProxy({ ...newProxy, protocol: e.target.value as ProxyProtocol })}
@@ -502,7 +521,7 @@ export default function SettingsPage() {
               </StoneSelect>
             </div>
             <div>
-              <label className="block text-sm text-stone-600 mb-2">端口</label>
+              <label className="block text-sm text-slate-400 mb-2">端口</label>
               <StoneInput
                 type="number"
                 value={newProxy.port.toString()}
@@ -512,7 +531,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">主机地址</label>
+            <label className="block text-sm text-slate-400 mb-2">主机地址</label>
             <StoneInput
               value={newProxy.host}
               onChange={(e) => setNewProxy({ ...newProxy, host: e.target.value })}
@@ -521,7 +540,7 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-stone-600 mb-2">用户名（可选）</label>
+              <label className="block text-sm text-slate-400 mb-2">用户名（可选）</label>
               <StoneInput
                 value={newProxy.username}
                 onChange={(e) => setNewProxy({ ...newProxy, username: e.target.value })}
@@ -529,7 +548,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-stone-600 mb-2">密码（可选）</label>
+              <label className="block text-sm text-slate-400 mb-2">密码（可选）</label>
               <StoneInput
                 type="password"
                 value={newProxy.password}

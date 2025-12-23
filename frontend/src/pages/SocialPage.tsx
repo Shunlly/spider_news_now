@@ -1,12 +1,12 @@
 /**
- * 社交数据页面
- * Social Data Page
+ * HUD 风格社交数据页面
+ * HUD-style Social Data Page
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { StoneCard, StoneButton, StoneInput, StoneSelect, StoneModal, useToast } from '@/components/ui'
+import { HUDPanel, StoneButton, StoneSelect, StoneModal, useToast } from '@/components/ui'
 import {
   Plus,
   RefreshCw,
@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Activity,
+  Users,
 } from 'lucide-react'
 import {
   socialService,
@@ -30,8 +32,8 @@ import {
 import { getApiErrorMessage } from '@/utils/errorHandler'
 
 const platformLabels: Record<Platform, string> = {
-  twitter: 'Twitter',
-  telegram: 'Telegram',
+  twitter: 'TWITTER',
+  telegram: 'TELEGRAM',
 }
 
 const statusLabels: Record<SessionStatus, string> = {
@@ -42,10 +44,10 @@ const statusLabels: Record<SessionStatus, string> = {
 }
 
 const statusColors: Record<SessionStatus, string> = {
-  active: 'bg-green-100 text-green-700',
-  paused: 'bg-yellow-100 text-yellow-700',
-  completed: 'bg-blue-100 text-blue-700',
-  error: 'bg-red-100 text-red-700',
+  active: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  paused: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+  completed: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+  error: 'bg-red-500/20 text-red-400 border border-red-500/30',
 }
 
 export default function SocialPage() {
@@ -198,13 +200,14 @@ export default function SocialPage() {
   const totalPages = Math.ceil(total / pageSize)
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">社交数据</h1>
-          <p className="text-stone-500 mt-1">
-            共 {total} 个会话
+          <h1 className="text-2xl font-bold text-cyan-400 tracking-wide">社交数据</h1>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>共 <span className="text-cyan-400 font-mono">{total}</span> 个会话</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -221,111 +224,116 @@ export default function SocialPage() {
       </div>
 
       {/* 过滤器 */}
-      <StoneCard className="p-4">
+      <HUDPanel color="purple" className="mb-6">
         <div className="flex items-center gap-4">
-          <StoneSelect
+          <select
             value={platformFilter}
             onChange={(e) => {
               setPlatformFilter(e.target.value as Platform | '')
               setPage(1)
             }}
+            className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-slate-300 focus:outline-none focus:border-purple-500/50"
           >
             <option value="">全部平台</option>
             <option value="twitter">Twitter</option>
             <option value="telegram">Telegram</option>
-          </StoneSelect>
-          <StoneSelect
+          </select>
+          <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value as SessionStatus | '')
               setPage(1)
             }}
+            className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-slate-300 focus:outline-none focus:border-purple-500/50"
           >
             <option value="">全部状态</option>
             <option value="active">运行中</option>
             <option value="paused">已暂停</option>
             <option value="completed">已完成</option>
             <option value="error">错误</option>
-          </StoneSelect>
+          </select>
         </div>
-      </StoneCard>
+      </HUDPanel>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 会话列表 */}
-        <StoneCard className="overflow-hidden">
-          <div className="p-4 border-b border-stone-200">
-            <h3 className="font-semibold text-stone-900">会话列表</h3>
-          </div>
+        <HUDPanel title="会话列表" subtitle="采集目标" color="cyan">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
             </div>
           ) : sessions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-stone-500">暂无会话</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <Users className="w-12 h-12 text-slate-700 mb-3" />
+              <p className="text-slate-400">暂无会话</p>
             </div>
           ) : (
-            <div className="divide-y divide-stone-100 max-h-[600px] overflow-y-auto">
-              {sessions.map((session) => (
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {sessions.map((session, index) => (
                 <div
                   key={session.id}
                   onClick={() => handleSessionClick(session)}
-                  className={`p-4 cursor-pointer transition-colors ${
-                    selectedSession?.id === session.id ? 'bg-stone-100' : 'hover:bg-stone-50'
+                  className={`p-4 rounded-lg cursor-pointer transition-all border ${
+                    selectedSession?.id === session.id
+                      ? 'bg-cyan-500/10 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)]'
+                      : 'bg-slate-800/30 border-slate-700/50 hover:border-cyan-500/30'
                   }`}
+                  style={{
+                    animation: `fadeInUp 0.3s ease-out ${index * 0.03}s both`,
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-2">
                         {session.platform === 'twitter' ? (
-                          <Twitter className="w-4 h-4 text-blue-500" />
+                          <Twitter className="w-4 h-4 text-blue-400" />
                         ) : (
-                          <Send className="w-4 h-4 text-cyan-500" />
+                          <Send className="w-4 h-4 text-cyan-400" />
                         )}
-                        <span className="text-xs text-stone-400">
+                        <span className="text-xs text-slate-500 font-mono">
                           {platformLabels[session.platform]}
                         </span>
                         <span className={`text-xs px-2 py-0.5 rounded ${statusColors[session.status]}`}>
                           {statusLabels[session.status]}
                         </span>
                       </div>
-                      <h4 className="text-stone-900 font-medium truncate">{session.target_name}</h4>
-                      <p className="text-sm text-stone-500">@{session.target_username || session.target_id}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-stone-400">
-                        <span>{session.message_count} 条消息</span>
-                        <span>最后采集: {formatDate(session.last_fetch_at)}</span>
+                      <h4 className="text-slate-200 font-medium truncate">{session.target_name}</h4>
+                      <p className="text-sm text-slate-500 font-mono">@{session.target_username || session.target_id}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-600">
+                        <span><span className="text-cyan-400">{session.message_count}</span> 条消息</span>
+                        <span>LAST: {formatDate(session.last_fetch_at)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleFetchSession(session) }}
-                        className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                         title="立即采集"
                         disabled={fetchingSession === session.id}
                       >
                         {fetchingSession === session.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-stone-900"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
                         ) : (
-                          <Download className="w-4 h-4 text-stone-500" />
+                          <Download className="w-4 h-4 text-slate-500 hover:text-cyan-400" />
                         )}
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handlePauseResume(session) }}
-                        className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                         title={session.status === 'active' ? '暂停' : '恢复'}
                       >
                         {session.status === 'active' ? (
-                          <Pause className="w-4 h-4 text-stone-500" />
+                          <Pause className="w-4 h-4 text-slate-500 hover:text-yellow-400" />
                         ) : (
-                          <Play className="w-4 h-4 text-stone-500" />
+                          <Play className="w-4 h-4 text-slate-500 hover:text-emerald-400" />
                         )}
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(session) }}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
                         title="删除"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <Trash2 className="w-4 h-4 text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -336,71 +344,79 @@ export default function SocialPage() {
 
           {/* 分页 */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 p-4 border-t border-stone-100">
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-700/50">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 transition-colors"
               >
-                <ChevronLeft className="w-4 h-4 text-stone-700" />
+                <ChevronLeft className="w-4 h-4 text-slate-400" />
               </button>
-              <span className="text-sm text-stone-500">{page} / {totalPages}</span>
+              <span className="text-sm text-slate-500 font-mono">
+                <span className="text-cyan-400">{page}</span> / {totalPages}
+              </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 hover:bg-stone-100 rounded-lg disabled:opacity-30"
+                className="p-2 hover:bg-slate-700/50 rounded-lg disabled:opacity-30 transition-colors"
               >
-                <ChevronRight className="w-4 h-4 text-stone-700" />
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
         {/* 消息预览 */}
-        <StoneCard className="overflow-hidden">
-          <div className="p-4 border-b border-stone-200">
-            <h3 className="font-semibold text-stone-900">
-              {selectedSession ? `${selectedSession.target_name} 的消息` : '消息预览'}
-            </h3>
-          </div>
+        <HUDPanel
+          title={selectedSession ? `${selectedSession.target_name} 的消息` : '消息预览'}
+          subtitle="实时数据"
+          color="green"
+        >
           {!selectedSession ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <MessageSquare className="w-12 h-12 text-stone-200 mb-4" />
-              <p className="text-stone-400">选择一个会话查看消息</p>
+              <MessageSquare className="w-12 h-12 text-slate-700 mb-4" />
+              <p className="text-slate-400">选择一个会话查看消息</p>
             </div>
           ) : messagesLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-900"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-stone-500">暂无消息</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <MessageSquare className="w-12 h-12 text-slate-700 mb-3" />
+              <p className="text-slate-400">暂无消息</p>
             </div>
           ) : (
-            <div className="divide-y divide-stone-100 max-h-[600px] overflow-y-auto">
-              {messages.map((message) => (
-                <div key={message.id} className="p-4">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+              {messages.map((message, index) => (
+                <div
+                  key={message.id}
+                  className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                  style={{
+                    animation: `fadeInUp 0.3s ease-out ${index * 0.02}s both`,
+                  }}
+                >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm text-stone-600">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+                      <span className="text-sm text-emerald-400 font-bold">
                         {message.author_name.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-stone-900">{message.author_name}</span>
+                        <span className="font-medium text-slate-200">{message.author_name}</span>
                         {message.author_username && (
-                          <span className="text-sm text-stone-400">@{message.author_username}</span>
+                          <span className="text-sm text-slate-500 font-mono">@{message.author_username}</span>
                         )}
                       </div>
-                      <p className="text-stone-700 text-sm whitespace-pre-wrap break-words">
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap break-words">
                         {message.content}
                       </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-stone-400">
-                        <span>{message.like_count} 赞</span>
-                        <span>{message.repost_count} 转发</span>
-                        <span>{message.reply_count} 回复</span>
-                        <span>{formatDate(message.posted_at)}</span>
+                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-600 font-mono">
+                        <span><span className="text-pink-400">{message.like_count}</span> LIKES</span>
+                        <span><span className="text-cyan-400">{message.repost_count}</span> RT</span>
+                        <span><span className="text-purple-400">{message.reply_count}</span> REPLY</span>
+                        <span className="text-slate-500">{formatDate(message.posted_at)}</span>
                       </div>
                     </div>
                   </div>
@@ -408,7 +424,7 @@ export default function SocialPage() {
               ))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
       </div>
 
       {/* 创建会话模态框 */}
@@ -420,7 +436,7 @@ export default function SocialPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-stone-600 mb-2">平台</label>
+            <label className="block text-sm text-slate-400 mb-2">平台</label>
             <StoneSelect
               value={newSession.platform}
               onChange={(e) => setNewSession({ ...newSession, platform: e.target.value as Platform })}
@@ -431,27 +447,30 @@ export default function SocialPage() {
             </StoneSelect>
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">目标 ID</label>
-            <StoneInput
+            <label className="block text-sm text-slate-400 mb-2">目标 ID</label>
+            <input
               value={newSession.target_id}
               onChange={(e) => setNewSession({ ...newSession, target_id: e.target.value })}
               placeholder="用户 ID 或频道 ID"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
             />
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">显示名称</label>
-            <StoneInput
+            <label className="block text-sm text-slate-400 mb-2">显示名称</label>
+            <input
               value={newSession.target_name}
               onChange={(e) => setNewSession({ ...newSession, target_name: e.target.value })}
               placeholder="显示名称"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
             />
           </div>
           <div>
-            <label className="block text-sm text-stone-600 mb-2">描述（可选）</label>
-            <StoneInput
+            <label className="block text-sm text-slate-400 mb-2">描述（可选）</label>
+            <input
               value={newSession.description}
               onChange={(e) => setNewSession({ ...newSession, description: e.target.value })}
               placeholder="会话描述"
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
             />
           </div>
           <div className="flex justify-end gap-3 mt-6">
@@ -465,6 +484,20 @@ export default function SocialPage() {
           </div>
         </div>
       </StoneModal>
+
+      {/* 动画样式 */}
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   )
 }

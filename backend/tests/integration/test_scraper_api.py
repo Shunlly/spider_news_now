@@ -11,10 +11,11 @@ class TestScraperAPI:
     """Integration tests for scraper management API."""
 
     @pytest.mark.asyncio
-    async def test_trigger_scraper_success(self, client: AsyncClient, db_session):
+    async def test_trigger_scraper_success(self, client: AsyncClient, db_session, test_user):
         """Test manually triggering a scraper."""
         # Create test source
         source = NewsSource(
+            user_id=test_user.id,
             source_key="test_source",
             display_name="Test Source",
             scraper_module="app.scrapers.sina_scraper",
@@ -34,7 +35,7 @@ class TestScraperAPI:
         assert data["status"] == "queued"
 
     @pytest.mark.asyncio
-    async def test_trigger_nonexistent_scraper(self, client: AsyncClient, db_session):
+    async def test_trigger_nonexistent_scraper(self, client: AsyncClient, db_session, test_user):
         """Test triggering a non-existent scraper."""
         response = await client.post("/api/v1/scrapers/nonexistent/trigger")
 
@@ -42,10 +43,11 @@ class TestScraperAPI:
         assert "not found" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_trigger_disabled_scraper(self, client: AsyncClient, db_session):
+    async def test_trigger_disabled_scraper(self, client: AsyncClient, db_session, test_user):
         """Test triggering a disabled scraper."""
         # Create disabled source
         source = NewsSource(
+            user_id=test_user.id,
             source_key="disabled_source",
             display_name="Disabled Source",
             scraper_module="app.scrapers.sina_scraper",
@@ -61,10 +63,11 @@ class TestScraperAPI:
         assert "disabled" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_trigger_running_scraper(self, client: AsyncClient, db_session):
+    async def test_trigger_running_scraper(self, client: AsyncClient, db_session, test_user):
         """Test triggering a scraper that is already running."""
         # Create running source
         source = NewsSource(
+            user_id=test_user.id,
             source_key="running_source",
             display_name="Running Source",
             scraper_module="app.scrapers.sina_scraper",

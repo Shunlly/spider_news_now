@@ -1,12 +1,12 @@
 /**
- * Telegram 管理页面
- * Telegram Management Page
+ * HUD 风格 Telegram 管理页面
+ * HUD-style Telegram Management Page
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { StoneCard, StoneButton, StoneInput, StoneSelect, useToast } from '@/components/ui'
+import { HUDPanel, StoneButton, StoneSelect, useToast } from '@/components/ui'
 import {
   Send,
   RefreshCw,
@@ -16,12 +16,12 @@ import {
   User,
   CheckCircle,
   XCircle,
-  Loader2,
   Settings,
   Eye,
   Link,
   Search,
   Download,
+  Activity,
 } from 'lucide-react'
 import telegramService, {
   type TelegramDialog,
@@ -498,15 +498,9 @@ export default function TelegramPage() {
     if (authStep === 'connected') return null
 
     return (
-      <StoneCard className="p-6 max-w-md mx-auto">
-        <h2 className="text-lg font-semibold text-stone-900 mb-4">
-          {authStep === 'init' && 'Telegram 登录'}
-          {authStep === 'sendCode' && '发送验证码'}
-          {authStep === 'signIn' && '验证登录'}
-        </h2>
-
+      <HUDPanel title="Telegram 登录" subtitle="MTProto API" color="cyan" className="max-w-lg mx-auto">
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -515,29 +509,32 @@ export default function TelegramPage() {
           {authStep === 'init' && (
             <>
               <div>
-                <label className="block text-sm text-stone-600 mb-1">API ID</label>
-                <StoneInput
+                <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">API ID</label>
+                <input
                   value={apiId}
                   onChange={(e) => setApiId(e.target.value)}
                   placeholder="从 my.telegram.org 获取"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
               <div>
-                <label className="block text-sm text-stone-600 mb-1">API Hash</label>
-                <StoneInput
+                <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">API Hash</label>
+                <input
                   type="password"
                   value={apiHash}
                   onChange={(e) => setApiHash(e.target.value)}
                   placeholder="从 my.telegram.org 获取"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
               {savedSession && (
                 <div>
-                  <label className="block text-sm text-stone-600 mb-1">已保存的 Session（可选）</label>
-                  <StoneInput
+                  <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">已保存的 Session</label>
+                  <input
                     value={savedSession}
                     onChange={(e) => setSavedSession(e.target.value)}
                     placeholder="之前保存的 StringSession"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                   />
                   <StoneButton
                     className="w-full mt-2"
@@ -549,29 +546,36 @@ export default function TelegramPage() {
                   </StoneButton>
                 </div>
               )}
-              <div className="border-t border-stone-200 pt-4">
+              <div className="border-t border-slate-700/50 pt-4">
                 <StoneButton
                   className="w-full"
                   onClick={handleInit}
                   loading={loading}
                 >
-                  初始化客户端
+                  <Send className="w-4 h-4 mr-2" />初始化客户端
                 </StoneButton>
               </div>
-              <p className="text-xs text-stone-400 text-center">
-                请先在 <a href="https://my.telegram.org" target="_blank" rel="noopener noreferrer" className="text-stone-600 hover:underline">my.telegram.org</a> 创建应用获取 API 凭证
-              </p>
+              <div className="p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                <h4 className="text-sm text-slate-300 font-medium mb-2">如何获取 API 凭证？</h4>
+                <ol className="text-xs text-slate-500 space-y-1 list-decimal list-inside">
+                  <li>访问 <a href="https://my.telegram.org" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">my.telegram.org</a></li>
+                  <li>登录你的 Telegram 账号</li>
+                  <li>进入 API development tools</li>
+                  <li>创建应用并获取 <code className="bg-slate-700 px-1 rounded text-cyan-400">api_id</code> 和 <code className="bg-slate-700 px-1 rounded text-cyan-400">api_hash</code></li>
+                </ol>
+              </div>
             </>
           )}
 
           {authStep === 'sendCode' && (
             <>
               <div>
-                <label className="block text-sm text-stone-600 mb-1">手机号码</label>
-                <StoneInput
+                <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">手机号码</label>
+                <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+86xxxxxxxxx"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
               <StoneButton
@@ -587,21 +591,23 @@ export default function TelegramPage() {
           {authStep === 'signIn' && (
             <>
               <div>
-                <label className="block text-sm text-stone-600 mb-1">验证码</label>
-                <StoneInput
+                <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">验证码</label>
+                <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="输入收到的验证码"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
               {needPassword && (
                 <div>
-                  <label className="block text-sm text-stone-600 mb-1">两步验证密码</label>
-                  <StoneInput
+                  <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wider">两步验证密码</label>
+                  <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="输入两步验证密码"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                   />
                 </div>
               )}
@@ -615,7 +621,7 @@ export default function TelegramPage() {
             </>
           )}
         </div>
-      </StoneCard>
+      </HUDPanel>
     )
   }
 
@@ -626,20 +632,20 @@ export default function TelegramPage() {
     return (
       <div className="space-y-6">
         {/* 用户信息 */}
-        <StoneCard className="p-4">
+        <HUDPanel color="cyan">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-full flex items-center justify-center border border-cyan-500/30">
+                <User className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-stone-900 font-medium">
+                  <span className="text-slate-200 font-medium">
                     {userInfo?.first_name} {userInfo?.last_name}
                   </span>
-                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <CheckCircle className="w-4 h-4 text-cyan-400" />
                 </div>
-                <span className="text-sm text-stone-500">
+                <span className="text-sm text-slate-500 font-mono">
                   @{userInfo?.username || userInfo?.phone}
                 </span>
               </div>
@@ -648,85 +654,72 @@ export default function TelegramPage() {
               断开连接
             </StoneButton>
           </div>
-        </StoneCard>
+        </HUDPanel>
 
         {/* 已订阅列表 */}
-        <StoneCard className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-stone-900 font-medium">已订阅频道 ({subscriptions.length})</h3>
-            <StoneButton
-              size="sm"
-              variant="secondary"
-              icon={<RefreshCw className="w-4 h-4" />}
-              onClick={loadSubscriptions}
-              loading={subsLoading}
-            />
-          </div>
+        <HUDPanel title="已订阅频道" subtitle={`${subscriptions.length} 个`} color="green"
+          headerAction={<StoneButton size="sm" variant="secondary" icon={<RefreshCw className="w-4 h-4" />} onClick={loadSubscriptions} loading={subsLoading} />}>
           {subsLoading ? (
-            <div className="text-center py-4 text-stone-500">加载中...</div>
+            <div className="text-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-400 mx-auto"></div></div>
           ) : subscriptions.length === 0 ? (
-            <div className="text-center py-4 text-stone-500">
-              暂无订阅，在下方已加入的频道列表中点击 + 按钮添加
-            </div>
+            <div className="text-center py-8 text-slate-500">暂无订阅，在下方已加入的频道列表中点击 + 按钮添加</div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {subscriptions.map((sub) => (
                 <div
                   key={sub.id}
-                  className="p-3 bg-stone-50 rounded-lg flex items-center justify-between hover:bg-stone-100"
+                  className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50 flex items-center justify-between hover:border-emerald-500/30 transition-all"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-stone-900 font-medium truncate">{sub.target_name}</span>
+                      <span className="text-slate-200 font-medium truncate">{sub.target_name}</span>
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        sub.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                       }`}>
-                        {sub.status === 'active' ? '运行中' : '已暂停'}
+                        {sub.status === 'active' ? 'ACTIVE' : 'PAUSED'}
                       </span>
                     </div>
-                    <div className="text-sm text-stone-500">{sub.target_username || `ID: ${sub.target_id}`}</div>
-                    <div className="text-xs text-stone-400 mt-1">
-                      {sub.message_count} 条消息 · 采集间隔 {sub.fetch_interval / 60} 分钟
+                    <div className="text-sm text-slate-500 font-mono">{sub.target_username || `ID: ${sub.target_id}`}</div>
+                    <div className="text-xs text-slate-600 mt-1 font-mono">
+                      {sub.message_count} MSG · {sub.fetch_interval / 60}m INTERVAL
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-2">
                     <button
                       onClick={() => handleFetchSubscription(sub.id)}
                       disabled={fetchingId === sub.id}
-                      className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
+                      className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
                       title="立即采集"
                     >
                       {fetchingId === sub.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-stone-500" />
+                        <div className="w-4 h-4 border-2 border-slate-600 border-t-emerald-400 rounded-full animate-spin" />
                       ) : (
-                        <Download className="w-4 h-4 text-stone-500" />
+                        <Download className="w-4 h-4 text-slate-500 hover:text-emerald-400" />
                       )}
                     </button>
                     <button
                       onClick={() => handleDeleteSubscription(sub.id, sub.target_name)}
-                      className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
                       title="删除订阅"
                     >
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <Trash2 className="w-4 h-4 text-red-400" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
         {/* 搜索频道 */}
-        <StoneCard className="p-4">
-          <h3 className="text-stone-900 font-medium mb-1">添加订阅</h3>
-          <p className="text-stone-500 text-sm mb-3">搜索频道/群组，加入后可在下方列表中点击 + 订阅</p>
+        <HUDPanel title="添加订阅" subtitle="搜索并加入频道" color="purple">
           <div className="flex gap-2">
-            <StoneInput
+            <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="输入关键词（如 香港、财经）或用户名（如 @telegram）"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="flex-1"
+              className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
             />
             <StoneButton
               icon={<Search className="w-4 h-4" />}
@@ -740,32 +733,33 @@ export default function TelegramPage() {
           {/* 搜索结果列表 */}
           {searchResults.length > 0 && (
             <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-              <div className="text-sm text-stone-500 mb-2">找到 {searchResults.length} 个结果：</div>
-              {searchResults.map((entity) => (
+              <div className="text-sm text-slate-500">找到 <span className="text-purple-400 font-mono">{searchResults.length}</span> 个结果：</div>
+              {searchResults.map((entity, index) => (
                 <div
                   key={entity.id}
-                  className={`p-3 rounded-lg flex items-center justify-between ${
-                    entity._justJoined ? 'bg-green-50 border border-green-200' :
-                    entity._alreadyJoined ? 'bg-yellow-50 border border-yellow-200' :
-                    'bg-stone-50 hover:bg-stone-100'
+                  className={`p-3 rounded-lg flex items-center justify-between border ${
+                    entity._justJoined ? 'bg-emerald-500/10 border-emerald-500/30' :
+                    entity._alreadyJoined ? 'bg-yellow-500/10 border-yellow-500/30' :
+                    'bg-slate-800/30 border-slate-700/50 hover:border-purple-500/30'
                   }`}
+                  style={{ animation: `fadeInUp 0.3s ease-out ${index * 0.03}s both` }}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-stone-900 font-medium truncate">{entity.title}</span>
+                      <span className="text-slate-200 font-medium truncate">{entity.title}</span>
                       {entity._justJoined && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex-shrink-0">加入成功</span>
+                        <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded flex-shrink-0">SUCCESS</span>
                       )}
                       {entity._alreadyJoined && !entity._justJoined && (
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded flex-shrink-0">已加入</span>
+                        <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded flex-shrink-0">JOINED</span>
                       )}
                     </div>
-                    <div className="text-sm text-stone-500 truncate">
-                      {entity.username ? `@${entity.username}` : ''} · {entity.type === 'channel' ? '频道' : entity.type === 'group' ? '群组' : entity.type}
-                      {entity.participant_count && ` · ${entity.participant_count.toLocaleString()} 成员`}
+                    <div className="text-sm text-slate-500 truncate font-mono">
+                      {entity.username ? `@${entity.username}` : ''} · {entity.type === 'channel' ? 'CHANNEL' : entity.type === 'group' ? 'GROUP' : entity.type?.toUpperCase()}
+                      {entity.participant_count && ` · ${entity.participant_count.toLocaleString()} MEMBERS`}
                     </div>
                     {entity.description && (
-                      <p className="text-sm text-stone-400 mt-1 line-clamp-1">{entity.description}</p>
+                      <p className="text-sm text-slate-600 mt-1 line-clamp-1">{entity.description}</p>
                     )}
                   </div>
                   {!entity._alreadyJoined && (
@@ -784,30 +778,26 @@ export default function TelegramPage() {
             </div>
           )}
 
-          {/* 推荐频道（搜索无结果时显示） */}
+          {/* 推荐提示 */}
           {searchResults.length === 0 && searchQuery && !searching && (
-            <div className="mt-4 p-4 bg-stone-50 rounded-lg">
-              <div className="text-sm text-stone-600 mb-3">
+            <div className="mt-4 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+              <div className="text-sm text-slate-400 mb-3">
                 未找到相关频道？试试直接输入频道用户名添加：
               </div>
               <div className="space-y-2">
-                <div className="text-xs text-stone-400">
-                  示例格式：<code className="bg-stone-200 px-1 rounded">@channelname</code> 或 <code className="bg-stone-200 px-1 rounded">t.me/channelname</code>
-                </div>
-                <div className="text-xs text-stone-400">
-                  可以在 Telegram 应用中找到频道，复制用户名或分享链接粘贴到搜索框
+                <div className="text-xs text-slate-500">
+                  示例格式：<code className="bg-slate-700 px-1 rounded text-cyan-400">@channelname</code> 或 <code className="bg-slate-700 px-1 rounded text-cyan-400">t.me/channelname</code>
                 </div>
               </div>
             </div>
           )}
-        </StoneCard>
+        </HUDPanel>
 
         {/* 频道列表和消息 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 频道列表 */}
-          <StoneCard className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-stone-900 font-medium">已加入的频道</h3>
+          <HUDPanel title="已加入的频道" subtitle={`${dialogs.length} 个`} color="blue"
+            headerAction={
               <div className="flex items-center gap-2">
                 <StoneSelect
                   value={filterType}
@@ -826,46 +816,44 @@ export default function TelegramPage() {
                   loading={dialogsLoading}
                 />
               </div>
-            </div>
-
+            }>
             {dialogsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
               </div>
             ) : dialogs.length === 0 ? (
-              <div className="text-center py-8 text-stone-500">
-                暂无频道，请搜索并加入
-              </div>
+              <div className="text-center py-8 text-slate-500">暂无频道，请搜索并加入</div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {dialogs.map((dialog) => (
+                {dialogs.map((dialog, index) => (
                   <div
                     key={dialog.id}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                    className={`p-3 rounded-lg cursor-pointer transition-all border ${
                       selectedChannel?.id === dialog.id
-                        ? 'bg-stone-200 border border-stone-300'
-                        : 'bg-stone-50 hover:bg-stone-100'
+                        ? 'bg-blue-500/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+                        : 'bg-slate-800/30 border-slate-700/50 hover:border-blue-500/30'
                     }`}
                     onClick={() => fetchMessages(dialog)}
+                    style={{ animation: `fadeInUp 0.3s ease-out ${index * 0.03}s both` }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-stone-900 font-medium truncate">{dialog.title}</span>
+                          <span className="text-slate-200 font-medium truncate">{dialog.title}</span>
                           {dialog.is_pinned && (
-                            <span className="text-xs bg-yellow-100 text-yellow-700 px-1 rounded">置顶</span>
+                            <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1 rounded">PIN</span>
                           )}
                         </div>
-                        <div className="text-xs text-stone-500 flex items-center gap-2 mt-1">
+                        <div className="text-xs text-slate-500 flex items-center gap-2 mt-1 font-mono">
                           <span className={`px-1.5 py-0.5 rounded ${
-                            dialog.type === 'channel' ? 'bg-blue-100 text-blue-700' :
-                            dialog.type === 'group' ? 'bg-green-100 text-green-700' :
-                            'bg-stone-100 text-stone-600'
+                            dialog.type === 'channel' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                            dialog.type === 'group' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                            'bg-slate-700/50 text-slate-400'
                           }`}>
-                            {dialog.type === 'channel' ? '频道' : dialog.type === 'group' ? '群组' : '私聊'}
+                            {dialog.type === 'channel' ? 'CH' : dialog.type === 'group' ? 'GP' : 'DM'}
                           </span>
                           {dialog.participant_count && (
-                            <span>{dialog.participant_count.toLocaleString()} 成员</span>
+                            <span>{dialog.participant_count.toLocaleString()} MEMBERS</span>
                           )}
                         </div>
                       </div>
@@ -876,11 +864,11 @@ export default function TelegramPage() {
                             handleSubscribe(dialog)
                           }}
                           disabled={subscribing === dialog.id}
-                          className="p-1.5 hover:bg-stone-200 rounded text-stone-500 opacity-50 hover:opacity-100 transition-opacity"
+                          className="p-1.5 hover:bg-slate-700/50 rounded text-slate-500 hover:text-cyan-400 transition-colors"
                           title="订阅到社交数据"
                         >
                           {subscribing === dialog.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <div className="w-4 h-4 border-2 border-slate-600 border-t-cyan-400 rounded-full animate-spin" />
                           ) : (
                             <Plus className="w-4 h-4" />
                           )}
@@ -890,7 +878,7 @@ export default function TelegramPage() {
                             e.stopPropagation()
                             handleLeave(dialog.id)
                           }}
-                          className="p-1.5 hover:bg-red-50 rounded text-red-500 opacity-50 hover:opacity-100 transition-opacity"
+                          className="p-1.5 hover:bg-red-500/20 rounded text-red-400 opacity-50 hover:opacity-100 transition-opacity"
                           title="退出"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -901,59 +889,58 @@ export default function TelegramPage() {
                 ))}
               </div>
             )}
-          </StoneCard>
+          </HUDPanel>
 
           {/* 消息列表 */}
-          <StoneCard className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-stone-900 font-medium">
-                {selectedChannel ? selectedChannel.title : '选择频道查看消息'}
-              </h3>
-              {selectedChannel && (
-                <StoneButton
-                  size="sm"
-                  variant="secondary"
-                  icon={<RefreshCw className="w-4 h-4" />}
-                  onClick={() => fetchMessages(selectedChannel)}
-                  loading={messagesLoading}
-                />
-              )}
-            </div>
-
+          <HUDPanel
+            title={selectedChannel ? selectedChannel.title : '消息预览'}
+            subtitle="实时数据"
+            color="purple"
+            headerAction={selectedChannel && (
+              <StoneButton
+                size="sm"
+                variant="secondary"
+                icon={<RefreshCw className="w-4 h-4" />}
+                onClick={() => fetchMessages(selectedChannel)}
+                loading={messagesLoading}
+              />
+            )}>
             {!selectedChannel ? (
-              <div className="text-center py-12 text-stone-500">
-                <MessageSquare className="w-12 h-12 mx-auto mb-2 text-stone-200" />
+              <div className="text-center py-12 text-slate-500">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 text-slate-700" />
                 <p>点击左侧频道查看消息</p>
               </div>
             ) : messagesLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-400"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-12 text-stone-500">
-                暂无消息
-              </div>
+              <div className="text-center py-12 text-slate-500">暂无消息</div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {messages.map((msg) => (
-                  <div key={msg.id} className="p-3 bg-stone-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2 text-xs text-stone-400">
+                {messages.map((msg, index) => (
+                  <div
+                    key={msg.id}
+                    className="p-3 bg-slate-800/30 rounded-lg border border-slate-700/50"
+                    style={{ animation: `fadeInUp 0.3s ease-out ${index * 0.02}s both` }}
+                  >
+                    <div className="flex items-center justify-between mb-2 text-xs text-slate-500 font-mono">
                       <span>{formatDate(msg.date)}</span>
                       <div className="flex items-center gap-3">
                         {msg.views && (
                           <span className="flex items-center gap-1">
-                            <Eye className="w-3 h-3" /> {msg.views.toLocaleString()}
+                            <Eye className="w-3 h-3 text-purple-400" /> <span className="text-purple-400">{msg.views.toLocaleString()}</span>
                           </span>
                         )}
                         {msg.forwards && (
                           <span className="flex items-center gap-1">
-                            <Send className="w-3 h-3" /> {msg.forwards}
+                            <Send className="w-3 h-3 text-cyan-400" /> <span className="text-cyan-400">{msg.forwards}</span>
                           </span>
                         )}
                       </div>
                     </div>
                     {msg.text && (
-                      <p className="text-stone-700 text-sm whitespace-pre-wrap line-clamp-4">
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap line-clamp-4">
                         {msg.text}
                       </p>
                     )}
@@ -965,37 +952,35 @@ export default function TelegramPage() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-stone-600 hover:underline flex items-center gap-1"
+                            className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
                           >
-                            <Link className="w-3 h-3" /> 链接 {i + 1}
+                            <Link className="w-3 h-3" /> LINK
                           </a>
                         ))}
                       </div>
                     )}
                     {msg.media_type && (
-                      <span className="inline-block mt-2 text-xs bg-stone-200 text-stone-600 px-2 py-0.5 rounded">
-                        {msg.media_type === 'photo' ? '图片' :
-                         msg.media_type === 'video' ? '视频' :
-                         msg.media_type === 'document' ? '文档' : msg.media_type}
+                      <span className="inline-block mt-2 text-xs bg-slate-700/50 text-slate-400 px-2 py-0.5 rounded border border-slate-600/50">
+                        {msg.media_type === 'photo' ? 'PHOTO' :
+                         msg.media_type === 'video' ? 'VIDEO' :
+                         msg.media_type === 'document' ? 'DOC' : msg.media_type.toUpperCase()}
                       </span>
                     )}
                   </div>
                 ))}
               </div>
             )}
-          </StoneCard>
+          </HUDPanel>
         </div>
 
         {/* StringSession 显示 */}
         {stringSession && (
-          <StoneCard className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-stone-900 font-medium flex items-center gap-2">
-                <Settings className="w-4 h-4" /> StringSession
-              </h3>
+          <HUDPanel title="StringSession" color="cyan"
+            headerAction={
               <StoneButton
                 size="sm"
                 variant="secondary"
+                icon={<Settings className="w-4 h-4" />}
                 onClick={() => {
                   navigator.clipboard.writeText(stringSession)
                   toast.success('已复制到剪贴板')
@@ -1003,35 +988,38 @@ export default function TelegramPage() {
               >
                 复制
               </StoneButton>
-            </div>
-            <p className="text-xs text-stone-400 mb-2">
+            }>
+            <p className="text-xs text-slate-500 mb-2">
               请妥善保存此 Session，下次可直接使用它登录，无需重新验证
             </p>
-            <div className="bg-stone-100 rounded p-2 text-xs text-stone-600 font-mono break-all max-h-20 overflow-y-auto">
+            <div className="bg-slate-800/50 rounded-lg p-3 text-xs text-cyan-400 font-mono break-all max-h-20 overflow-y-auto border border-slate-700/50">
               {stringSession}
             </div>
-          </StoneCard>
+          </HUDPanel>
         )}
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-in">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Telegram 管理</h1>
-          <p className="text-stone-500 mt-1">
-            {authStep === 'connected'
+          <h1 className="text-2xl font-bold text-cyan-400 tracking-wide flex items-center gap-2">
+            <Send className="w-6 h-6" /> Telegram 管理
+          </h1>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span>{authStep === 'connected'
               ? `已连接 · ${dialogs.length} 个频道`
-              : '使用 MTProto API 获取 Telegram 数据'}
+              : 'MTProto API 获取数据'}</span>
           </p>
         </div>
       </div>
 
       {error && authStep === 'connected' && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center justify-between">
+        <div className="mb-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError('')}>
             <XCircle className="w-4 h-4" />
@@ -1041,6 +1029,13 @@ export default function TelegramPage() {
 
       {renderAuthUI()}
       {renderConnectedUI()}
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }

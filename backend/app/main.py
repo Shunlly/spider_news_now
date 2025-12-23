@@ -1,16 +1,78 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.logging import setup_logging, get_logger
+from app.core.logging import get_logger, setup_logging
+from app.core.middleware import TenantMiddleware
+from app.core.rate_limit import RateLimitMiddleware
 
 logger = get_logger(__name__)
+
+# OpenAPI Tags for API Documentation
+tags_metadata = [
+    {
+        "name": "health",
+        "description": "Health check endpoints for monitoring service status.",
+    },
+    {
+        "name": "auth",
+        "description": "Authentication endpoints for user login, logout, and token management.",
+    },
+    {
+        "name": "news",
+        "description": "News article management. List, filter, and retrieve scraped news articles.",
+    },
+    {
+        "name": "search",
+        "description": "Full-text search powered by Meilisearch. SLA: < 500ms response time.",
+    },
+    {
+        "name": "scrapers",
+        "description": "Scraper configuration and execution management.",
+    },
+    {
+        "name": "social",
+        "description": "Social media session and message management for Telegram and Twitter.",
+    },
+    {
+        "name": "telegram",
+        "description": "Telegram-specific operations and session management.",
+    },
+    {
+        "name": "twitter",
+        "description": "Twitter/X-specific operations and cookie-based session management.",
+    },
+    {
+        "name": "credentials",
+        "description": "Credential management for social media platforms with encryption.",
+    },
+    {
+        "name": "proxies",
+        "description": "Proxy server configuration for scraping operations.",
+    },
+    {
+        "name": "exports",
+        "description": "Data export operations. Export news and social data to CSV/JSON.",
+    },
+    {
+        "name": "quota",
+        "description": "API quota management and usage tracking.",
+    },
+    {
+        "name": "Dashboard",
+        "description": "Real-time dashboard statistics and WebSocket updates.",
+    },
+    {
+        "name": "系统管理",
+        "description": "System administration: tenant management, audit logs, system stats.",
+    },
+]
 
 
 @asynccontextmanager
@@ -26,7 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Start APScheduler with async context manager
     from app.tasks.scheduler import get_scheduler
-    from app.tasks.scraper_tasks import register_scraper_jobs, register_content_parser_job
+    from app.tasks.scraper_tasks import register_content_parser_job, register_scraper_jobs
     from app.tasks.social_tasks import register_social_fetch_job
 
     scheduler = await get_scheduler()
@@ -62,11 +124,39 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # Create FastAPI application
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    description="""
+## News Scraper SaaS Platform API
+
+A comprehensive news scraping and social media monitoring platform.
+
+### Features
+- **News Scraping**: Automated scraping from multiple news sources
+- **Full-text Search**: Meilisearch-powered search with < 500ms SLA
+- **Social Monitoring**: Telegram and Twitter/X integration
+- **Data Export**: Export to CSV/JSON formats
+- **Proxy Management**: Built-in proxy rotation support
+
+### Authentication
+All endpoints (except health checks) require JWT authentication.
+Use `/auth/login` to obtain tokens.
+
+### Rate Limits
+API endpoints are rate-limited. Check response headers for limits.
+    """,
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
     docs_url=f"{settings.API_V1_PREFIX}/docs",
     redoc_url=f"{settings.API_V1_PREFIX}/redoc",
+    openapi_tags=tags_metadata,
     lifespan=lifespan,
+    contact={
+        "name": "Spider News Now",
+        "url": "https://github.com/shunlly/spider_news_now",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
 )
 
 # Configure CORS
@@ -77,6 +167,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
+
+# Add tenant context middleware (multi-tenancy support)
+app.add_middleware(TenantMiddleware)
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

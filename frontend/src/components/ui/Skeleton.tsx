@@ -1,8 +1,8 @@
 /**
- * 骨架屏组件
- * Skeleton Loading Components
+ * HUD 风格骨架屏组件
+ * HUD-style Skeleton Loading Components
  *
- * 提供多种骨架屏样式，用于内容加载时的占位
+ * 深色主题 + 发光动画
  */
 
 import clsx from 'clsx'
@@ -19,7 +19,7 @@ export function Skeleton({ className, style }: SkeletonProps) {
   return (
     <div
       className={clsx(
-        'animate-pulse bg-stone-200 rounded',
+        'animate-pulse bg-slate-700/50 rounded',
         className
       )}
       style={style}
@@ -85,7 +85,7 @@ export function SkeletonAvatar({
 export function SkeletonCard({ className }: SkeletonProps) {
   return (
     <div className={clsx(
-      'bg-white rounded-xl border border-stone-200 p-4',
+      'bg-slate-900/50 rounded-xl border border-slate-700/50 p-4 backdrop-blur-sm',
       className
     )}>
       <div className="flex items-center gap-3 mb-4">
@@ -106,7 +106,7 @@ export function SkeletonCard({ className }: SkeletonProps) {
 export function SkeletonNewsItem({ className }: SkeletonProps) {
   return (
     <div className={clsx(
-      'bg-white rounded-xl border border-stone-200 p-4 flex gap-4',
+      'bg-slate-900/50 rounded-xl border border-slate-700/50 p-4 flex gap-4 backdrop-blur-sm',
       className
     )}>
       {/* 缩略图 */}
@@ -132,7 +132,7 @@ export function SkeletonNewsItem({ className }: SkeletonProps) {
 export function SkeletonStatCard({ className }: SkeletonProps) {
   return (
     <div className={clsx(
-      'bg-white rounded-xl border border-stone-200 p-5',
+      'bg-slate-900/50 rounded-xl border border-slate-700/50 p-5 backdrop-blur-sm',
       className
     )}>
       <div className="flex items-center justify-between mb-4">
@@ -180,11 +180,11 @@ export function SkeletonTable({
 }) {
   return (
     <div className={clsx(
-      'bg-white rounded-xl border border-stone-200 overflow-hidden',
+      'bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden backdrop-blur-sm',
       className
     )}>
       <table className="w-full">
-        <thead className="bg-stone-50 border-b border-stone-200">
+        <thead className="bg-slate-800/50 border-b border-slate-700/50">
           <tr>
             {Array.from({ length: columns }).map((_, i) => (
               <th key={i} className="px-4 py-3 text-left">
@@ -193,7 +193,7 @@ export function SkeletonTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-100">
+        <tbody className="divide-y divide-slate-700/30">
           {Array.from({ length: rows }).map((_, i) => (
             <SkeletonTableRow key={i} columns={columns} />
           ))}
@@ -209,7 +209,7 @@ export function SkeletonTable({
 export function SkeletonChart({ className }: SkeletonProps) {
   return (
     <div className={clsx(
-      'bg-white rounded-xl border border-stone-200 p-4',
+      'bg-slate-900/50 rounded-xl border border-slate-700/50 p-4 backdrop-blur-sm',
       className
     )}>
       <div className="flex items-center justify-between mb-4">

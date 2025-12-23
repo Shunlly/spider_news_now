@@ -4,7 +4,7 @@
 **Created**: [DATE]
 **Status**: Draft
 **Input**: User description: "$ARGUMENTS"
-**Constitution**: v2.0.0 (Reference: `.specify/memory/constitution.md`)
+**Constitution**: v3.0.0 (Reference: `.specify/memory/constitution.md`)
 
 ## User Scenarios & Testing *(mandatory)*
 

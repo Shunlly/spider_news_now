@@ -59,3 +59,29 @@ export type {
   TelegramBaseResponse,
   TelegramStatusResponse,
 } from './telegramService'
+export { default as quotaService } from './quotaService'
+export { default as adminService } from './adminService'
+export type {
+  Tenant,
+  CreateTenantRequest,
+  UpdateTenantRequest,
+  TenantListResponse,
+  SystemStats,
+  AuditLog,
+  AuditLogListResponse,
+  SystemMetrics,
+  HealthStatus,
+} from './adminService'
+export { default as dataPoolService } from './dataPoolService'
+export type {
+  DataVisibility,
+  PlatformType,
+  DataPointer,
+  ArticleContent,
+  ArticleAnalysis,
+  DataPointerDetail,
+  DataPointerListResponse,
+  UserDataRelation,
+  DomainStats,
+  DataPoolStatistics,
+} from './dataPoolService'

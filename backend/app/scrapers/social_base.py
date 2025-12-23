@@ -12,13 +12,13 @@ import hashlib
 import json
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.models.social_session import Platform, SessionStatus, SocialSession
 from app.models.social_message import SocialMessage
+from app.models.social_session import Platform, SessionStatus, SocialSession
 from app.services.dedup_service import DuplicateService
 
 logger = get_logger(__name__)
@@ -37,7 +37,7 @@ class BaseSocialScraper(ABC):
         platform: Platform,
         session: SocialSession,
         db: AsyncSession,
-        dedup_service: Optional[DuplicateService] = None,
+        dedup_service: DuplicateService | None = None,
     ):
         """
         初始化社交爬虫
@@ -57,9 +57,9 @@ class BaseSocialScraper(ABC):
     @abstractmethod
     async def fetch_messages(
         self,
-        since_id: Optional[str] = None,
+        since_id: str | None = None,
         max_results: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         从平台获取消息
 
@@ -75,7 +75,7 @@ class BaseSocialScraper(ABC):
         pass
 
     @abstractmethod
-    async def parse_message(self, raw_message: Dict[str, Any]) -> Dict[str, Any]:
+    async def parse_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """
         解析原始消息为标准格式
 
@@ -114,7 +114,7 @@ class BaseSocialScraper(ABC):
         unique_key = f"{self.session.session_key}:{message_id}"
         return hashlib.sha256(unique_key.encode("utf-8")).hexdigest()
 
-    def validate_message(self, message: Dict[str, Any]) -> bool:
+    def validate_message(self, message: dict[str, Any]) -> bool:
         """
         验证消息数据完整性
 
@@ -140,9 +140,9 @@ class BaseSocialScraper(ABC):
 
     async def run(
         self,
-        since_id: Optional[str] = None,
+        since_id: str | None = None,
         max_results: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         执行采集流程
 

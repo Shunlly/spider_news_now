@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.models.social_session import Platform, SessionStatus, SocialSession, TargetType
-from app.scrapers.twitter_scraper import TwitterScraper
 from app.scrapers.telegram_scraper import TelegramScraper
+from app.scrapers.twitter_scraper import TwitterScraper
 
 
 class TestTwitterScraper:

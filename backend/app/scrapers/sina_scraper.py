@@ -1,8 +1,20 @@
-"""Sina News scraper - refactored for async with BaseScraper."""
+"""
+新浪新闻爬虫 - Sina News Scraper
+
+采集新浪新闻三个频道的文章：
+1. 娱乐频道 (ent): https://ent.sina.com.cn/
+2. 国内新闻 (china): https://news.sina.com.cn/china/
+3. 国际新闻 (world): https://news.sina.com.cn/world/
+
+技术实现：
+- 使用 Playwright 进行动态页面渲染
+- 支持翻页采集（国内新闻频道）
+- 正文解析时尝试多个 CSS 选择器
+"""
 
 import asyncio
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from playwright.async_api import async_playwright
 
@@ -11,20 +23,20 @@ from app.scrapers.base import BaseScraper
 
 class SinaScraper(BaseScraper):
     """
-    Scraper for Sina News (新浪新闻).
+    新浪新闻爬虫
 
-    Collects articles from three channels:
-    - Entertainment (ent): https://ent.sina.com.cn/
-    - China News (china): https://news.sina.com.cn/china/
-    - World News (world): https://news.sina.com.cn/world/
+    采集三个频道的文章：
+    - 娱乐频道 (ent): 卡片式列表页，需滚动加载
+    - 国内新闻 (china): 支持翻页，每页约 20 条
+    - 国际新闻 (world): 分区块展示，按新闻类型分组
     """
 
-    # 新浪新闻正文选择器
+    # 新浪新闻正文选择器（按优先级排序）
     CONTENT_SELECTORS = [
-        "#article",          # 文章正文主容器
-        "#artibody",         # 旧版文章容器
-        ".article",
-        ".article-content",
+        "#article",          # 新版文章正文主容器
+        "#artibody",         # 旧版文章正文容器
+        ".article",          # 通用文章容器
+        ".article-content",  # 备选文章容器
     ]
 
     def __init__(self):
@@ -33,7 +45,7 @@ class SinaScraper(BaseScraper):
         self.china_url = "https://news.sina.com.cn/china/"
         self.world_url = "https://news.sina.com.cn/world/"
 
-    async def fetch_content(self, url: str) -> Optional[str]:
+    async def fetch_content(self, url: str) -> str | None:
         """
         Fetch article content from Sina News, preserving images.
 
@@ -76,16 +88,19 @@ class SinaScraper(BaseScraper):
             self.logger.warning(f"Sina content fetch failed for {url}: {str(e)}")
             return None
 
-    async def scrape(self) -> List[Dict[str, Any]]:
+    async def scrape(self) -> list[dict[str, Any]]:
         """
-        Scrape all channels from Sina News.
+        采集所有新浪新闻频道
+
+        使用 asyncio.gather 并发采集三个频道，提高效率。
+        如果某个频道采集失败，不影响其他频道的结果。
 
         Returns:
-            List of raw article dictionaries
+            所有频道文章的合并列表
         """
         all_articles = []
 
-        # Scrape all channels concurrently
+        # 并发采集三个频道
         ent_task = self._scrape_ent_channel()
         china_task = self._scrape_china_channel(page_num=3)
         world_task = self._scrape_world_channel()
@@ -101,8 +116,15 @@ class SinaScraper(BaseScraper):
         self.logger.info(f"Scraped {len(all_articles)} total articles from Sina")
         return all_articles
 
-    async def _scrape_ent_channel(self) -> List[Dict[str, Any]]:
-        """Scrape entertainment channel."""
+    async def _scrape_ent_channel(self) -> list[dict[str, Any]]:
+        """
+        采集娱乐频道
+
+        页面结构：
+        - 卡片式布局 (div.cardlist-a__list > div.ty-card)
+        - 需要滚动到底部触发懒加载
+        - 每个卡片包含标题链接 (div:nth-child(2) > h3 > a)
+        """
         news_data = []
         try:
             async with async_playwright() as p:
@@ -145,8 +167,21 @@ class SinaScraper(BaseScraper):
             self.logger.error(f"Failed to scrape ent channel: {str(e)}")
             return news_data
 
-    async def _scrape_china_channel(self, page_num: int = 3) -> List[Dict[str, Any]]:
-        """Scrape China news channel with pagination."""
+    async def _scrape_china_channel(self, page_num: int = 3) -> list[dict[str, Any]]:
+        """
+        采集国内新闻频道（支持翻页）
+
+        页面结构：
+        - 新闻列表 (div.feed-card-content > div:first-child > div.feed-card-item)
+        - 翻页按钮 (.pagebox_next)
+        - 每页约 20 条新闻
+
+        Args:
+            page_num: 采集页数（默认 3 页）
+
+        Note:
+            翻页时需等待 DOM 更新完成，避免获取到旧数据
+        """
         news_data = []
         try:
             async with async_playwright() as p:
@@ -230,8 +265,21 @@ class SinaScraper(BaseScraper):
             self.logger.error(f"Failed to scrape china channel: {str(e)}")
             return news_data
 
-    async def _scrape_world_channel(self) -> List[Dict[str, Any]]:
-        """Scrape world news channel."""
+    async def _scrape_world_channel(self) -> list[dict[str, Any]]:
+        """
+        采集国际新闻频道
+
+        页面结构：
+        - 主容器 (div#subShowContent1_static)
+        - 分区块展示：news1/news2/news3/news4 对应不同地区新闻
+        - 每个区块包含 div.news-item 列表
+
+        区块说明：
+        - news1: 热点国际新闻
+        - news2: 美洲新闻
+        - news3: 欧洲新闻
+        - news4: 亚太新闻
+        """
         news_data = []
         SELECTOR_BOX = 'div#subShowContent1_static'
         NEWS_IDS = [

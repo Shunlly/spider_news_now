@@ -30,6 +30,7 @@ interface AuthStore extends AuthState {
   refreshToken: () => Promise<boolean>;
   fetchCurrentUser: () => Promise<void>;
   setToken: (token: string | null) => void;
+  setUser: (user: AuthState['user']) => void;
   clearError: () => void;
   hydrate: () => void;
   setHydrated: (value: boolean) => void;
@@ -171,6 +172,11 @@ export const useAuthStore = create<AuthStore>()(
           localStorage.removeItem(TOKEN_KEY);
           set({ token: null, isAuthenticated: false, user: null });
         }
+      },
+
+      // 设置用户信息
+      setUser: (user: AuthState['user']) => {
+        set({ user });
       },
 
       // 清除错误

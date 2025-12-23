@@ -1,17 +1,17 @@
 /**
- * 路由保护组件
- * Protected Route Component
+ * HUD 风格路由保护组件
+ * HUD-style Protected Route Component
  *
  * 功能：
  * - 检查用户是否已登录
  * - 未登录时重定向到登录页
- * - 可选的角色检查
+ * - 支持 role_id 权限检查
  */
 
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
-import { UserRole } from '../types/auth';
+import { isAdmin, isSuperAdmin } from '../types/auth';
 
 interface ProtectedRouteProps {
   /**
@@ -19,9 +19,20 @@ interface ProtectedRouteProps {
    */
   children: React.ReactNode;
   /**
-   * 允许的角色（可选），不指定则任何已登录用户都可访问
+   * 允许的角色 ID 列表（可选）
+   * - 1: super_admin
+   * - 2: tenant_admin
+   * - 3: user
    */
-  allowedRoles?: UserRole[];
+  allowedRoleIds?: number[];
+  /**
+   * 是否需要管理员权限（简化写法）
+   */
+  requireAdmin?: boolean;
+  /**
+   * 是否需要超级管理员权限
+   */
+  requireSuperAdmin?: boolean;
 }
 
 /**
@@ -29,11 +40,32 @@ interface ProtectedRouteProps {
  *
  * 用法：
  * ```tsx
+ * // 任何已登录用户
+ * <Route
+ *   path="/dashboard"
+ *   element={
+ *     <ProtectedRoute>
+ *       <DashboardPage />
+ *     </ProtectedRoute>
+ *   }
+ * />
+ *
+ * // 仅管理员
  * <Route
  *   path="/admin"
  *   element={
- *     <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+ *     <ProtectedRoute requireAdmin>
  *       <AdminPage />
+ *     </ProtectedRoute>
+ *   }
+ * />
+ *
+ * // 指定角色 ID
+ * <Route
+ *   path="/settings"
+ *   element={
+ *     <ProtectedRoute allowedRoleIds={[1, 2]}>
+ *       <SettingsPage />
  *     </ProtectedRoute>
  *   }
  * />
@@ -41,16 +73,18 @@ interface ProtectedRouteProps {
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
-  allowedRoles,
+  allowedRoleIds,
+  requireAdmin,
+  requireSuperAdmin,
 }) => {
   const location = useLocation();
   const { isAuthenticated, user, loading, isHydrated } = useAuthStore();
 
-  // 等待 Zustand 水合完成或正在加载
+  // 等待 Zustand 水合完成或正在加载 - HUD 风格
   if (!isHydrated || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-stone-200">
-        <Loader2 className="w-8 h-8 animate-spin text-stone-600" />
+      <div className="flex items-center justify-center min-h-screen bg-slate-950">
+        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
       </div>
     );
   }
@@ -60,10 +94,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  // 检查角色权限
-  if (allowedRoles && allowedRoles.length > 0 && user) {
-    if (!allowedRoles.includes(user.role)) {
-      // 无权限，显示 403 或重定向到首页
+  // 检查超级管理员权限
+  if (requireSuperAdmin && !isSuperAdmin(user)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // 检查管理员权限
+  if (requireAdmin && !isAdmin(user)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // 检查角色 ID 权限
+  if (allowedRoleIds && allowedRoleIds.length > 0 && user) {
+    if (!allowedRoleIds.includes(user.role_id)) {
       return <Navigate to="/" replace />;
     }
   }

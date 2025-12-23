@@ -1,12 +1,8 @@
 /**
- * 懒加载图片组件
- * Lazy Loading Image Component
+ * HUD 风格懒加载图片组件
+ * HUD-style Lazy Loading Image Component
  *
- * 功能：
- * - 视口检测懒加载
- * - 加载占位符
- * - 错误处理
- * - 支持 WebP 回退
+ * 深色主题 + 发光效果
  */
 
 import { useState, useRef, useEffect, ImgHTMLAttributes } from 'react'
@@ -31,7 +27,7 @@ interface LazyImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'onLo
 export default function LazyImage({
   src,
   alt,
-  placeholderColor = 'bg-stone-100',
+  placeholderColor = 'bg-slate-800/50',
   showErrorIcon = true,
   className,
   containerClassName,
@@ -96,8 +92,8 @@ export default function LazyImage({
 
       {/* 错误状态 */}
       {isError && showErrorIcon && (
-        <div className="absolute inset-0 flex items-center justify-center bg-stone-100">
-          <ImageOff className="w-8 h-8 text-stone-300" />
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-800/50 backdrop-blur-sm">
+          <ImageOff className="w-8 h-8 text-slate-500" />
         </div>
       )}
 

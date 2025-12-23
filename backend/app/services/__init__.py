@@ -12,10 +12,10 @@ Service Layer Module
 - 爬虫服务 (ScraperService)
 """
 
-from app.services.storage_service import StorageService, get_storage_service
 from app.services.dedup_service import DuplicateService, get_dedup_service
 from app.services.export_service import DataSource, ExportService
 from app.services.search_service import SearchService, get_search_service
+from app.services.storage_service import StorageService, get_storage_service
 
 __all__ = [
     "DuplicateService",

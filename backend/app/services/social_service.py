@@ -11,16 +11,16 @@
 import hashlib
 import json
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.models.social_session import SocialSession, Platform, SessionStatus, TargetType
 from app.models.social_message import SocialMessage
-from app.services.twitter_service import get_twitter_service
+from app.models.social_session import Platform, SessionStatus, SocialSession, TargetType
 from app.services.telegram_service import get_telegram_service
+from app.services.twitter_service import get_twitter_service
 
 logger = get_logger(__name__)
 
@@ -49,11 +49,11 @@ class SocialService:
     @staticmethod
     async def get_subscriptions(
         db: AsyncSession,
-        platform: Optional[Platform] = None,
-        status: Optional[SessionStatus] = None,
+        platform: Platform | None = None,
+        status: SessionStatus | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         获取订阅列表
 
@@ -118,10 +118,10 @@ class SocialService:
         user_id: str,
         screen_name: str,
         name: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         fetch_interval: int = 3600,
-        owner_user_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        owner_user_id: int | None = None,
+    ) -> dict[str, Any]:
         """
         添加 Twitter 用户订阅
 
@@ -185,12 +185,12 @@ class SocialService:
         db: AsyncSession,
         channel_id: int,
         title: str,
-        username: Optional[str] = None,
+        username: str | None = None,
         target_type: str = "channel",
-        description: Optional[str] = None,
+        description: str | None = None,
         fetch_interval: int = 1800,
-        owner_user_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        owner_user_id: int | None = None,
+    ) -> dict[str, Any]:
         """
         添加 Telegram 频道/群组订阅
 
@@ -261,10 +261,10 @@ class SocialService:
     async def update_subscription(
         db: AsyncSession,
         subscription_id: int,
-        status: Optional[str] = None,
-        fetch_interval: Optional[int] = None,
-        description: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        status: str | None = None,
+        fetch_interval: int | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
         """
         更新订阅配置
 
@@ -302,7 +302,7 @@ class SocialService:
         db: AsyncSession,
         subscription_id: int,
         delete_messages: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         删除订阅
 
@@ -340,11 +340,143 @@ class SocialService:
     # ============== 数据采集 ==============
 
     @staticmethod
+    async def fetch_twitter_thread(
+        db: AsyncSession,
+        session: SocialSession,
+        tweet_id: str,
+        max_results: int = 100,
+    ) -> dict[str, Any]:
+        """
+        采集 Twitter Thread (T098)
+
+        获取一个对话 Thread 的所有推文，包括原推和所有回复。
+
+        Args:
+            db: 数据库会话
+            session: 订阅会话（用于关联消息）
+            tweet_id: Thread 起始推文 ID
+            max_results: 最大获取数量
+
+        Returns:
+            {"success": bool, "new_count": int, "total_count": int, "message": str}
+        """
+        from app.scrapers.twitter_scraper import TwitterScraper
+        from app.services.dedup_service import DuplicateService
+
+        try:
+            # 创建去重服务
+            dedup_service = DuplicateService(db)
+
+            # 创建 Thread 爬虫
+            scraper = TwitterScraper(
+                session=session,
+                db=db,
+                dedup_service=dedup_service,
+            )
+
+            try:
+                # 执行 Thread 采集
+                result = await scraper.run_thread(
+                    tweet_id=tweet_id,
+                    max_results=max_results,
+                )
+
+                logger.info(
+                    f"Fetched Twitter Thread: {result.get('new', 0)} new from thread {tweet_id}"
+                )
+
+                return {
+                    "success": True,
+                    "new_count": result.get("new", 0),
+                    "total_count": result.get("fetched", 0),
+                    "duplicate_count": result.get("duplicate", 0),
+                    "message": f"获取到 {result.get('new', 0)} 条新推文（共 {result.get('fetched', 0)} 条）",
+                }
+
+            finally:
+                await scraper.close()
+
+        except Exception as e:
+            logger.error(f"Fetch Twitter Thread failed: {e}", exc_info=True)
+            return {
+                "success": False,
+                "new_count": 0,
+                "total_count": 0,
+                "message": str(e),
+            }
+
+    @staticmethod
+    async def fetch_telegram_history(
+        db: AsyncSession,
+        session: SocialSession,
+        limit: int = 100,
+        min_id: int = 0,
+    ) -> dict[str, Any]:
+        """
+        采集 Telegram 频道历史消息 (T099)
+
+        使用 MTProto API 获取频道历史消息，支持增量采集。
+
+        Args:
+            db: 数据库会话
+            session: 订阅会话
+            limit: 获取消息数量
+            min_id: 从此 ID 之后获取（增量采集）
+
+        Returns:
+            {"success": bool, "new_count": int, "total_count": int, "message": str}
+        """
+        from app.scrapers.telegram_scraper import TelegramScraper
+        from app.services.dedup_service import DuplicateService
+
+        try:
+            # 创建去重服务
+            dedup_service = DuplicateService(db)
+
+            # 创建历史采集爬虫
+            scraper = TelegramScraper(
+                session=session,
+                db=db,
+                dedup_service=dedup_service,
+            )
+
+            try:
+                # 执行历史消息采集
+                result = await scraper.run_history(
+                    limit=limit,
+                    min_id=min_id,
+                )
+
+                logger.info(
+                    f"Fetched Telegram history: {result.get('new', 0)} new from channel {session.target_id}"
+                )
+
+                return {
+                    "success": True,
+                    "new_count": result.get("new", 0),
+                    "total_count": result.get("fetched", 0),
+                    "duplicate_count": result.get("duplicate", 0),
+                    "message": f"获取到 {result.get('new', 0)} 条新消息（共 {result.get('fetched', 0)} 条）",
+                }
+
+            finally:
+                await scraper.close()
+
+        except Exception as e:
+            logger.error(f"Fetch Telegram history failed: {e}", exc_info=True)
+            return {
+                "success": False,
+                "new_count": 0,
+                "total_count": 0,
+                "message": str(e),
+            }
+
+    @staticmethod
     async def fetch_twitter_messages(
         db: AsyncSession,
         session: SocialSession,
         count: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         采集 Twitter 用户的推文
 
@@ -400,7 +532,7 @@ class SocialService:
                 if tweet.get("created_at"):
                     try:
                         posted_at = datetime.strptime(tweet["created_at"], "%Y-%m-%d %H:%M")
-                    except:
+                    except (ValueError, TypeError, KeyError):
                         pass
 
                 # 更新最新时间
@@ -459,7 +591,7 @@ class SocialService:
         db: AsyncSession,
         session: SocialSession,
         count: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         采集 Telegram 频道的消息
 
@@ -510,7 +642,7 @@ class SocialService:
                     try:
                         posted_at = datetime.fromisoformat(msg["date"].replace("Z", "+00:00"))
                         posted_at = posted_at.replace(tzinfo=None)
-                    except:
+                    except (ValueError, TypeError, KeyError):
                         pass
 
                 # 更新最新时间
@@ -561,7 +693,7 @@ class SocialService:
             return {"success": False, "new_count": 0, "message": str(e)}
 
     @staticmethod
-    async def fetch_all_active(db: AsyncSession) -> Dict[str, Any]:
+    async def fetch_all_active(db: AsyncSession) -> dict[str, Any]:
         """
         采集所有活跃订阅的数据
 
@@ -616,15 +748,15 @@ class SocialService:
     @staticmethod
     async def get_messages(
         db: AsyncSession,
-        subscription_id: Optional[int] = None,
-        platform: Optional[Platform] = None,
-        keyword: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        subscription_id: int | None = None,
+        platform: Platform | None = None,
+        keyword: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 50,
         offset: int = 0,
-        user_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        user_id: int | None = None,
+    ) -> dict[str, Any]:
         """
         获取消息列表
 
@@ -708,7 +840,7 @@ class SocialService:
         }
 
     @staticmethod
-    async def get_statistics(db: AsyncSession) -> Dict[str, Any]:
+    async def get_statistics(db: AsyncSession) -> dict[str, Any]:
         """
         获取统计信息
 

@@ -8,16 +8,18 @@ Proxy Configuration Management API Endpoints
 
 import asyncio
 from datetime import datetime
-from typing import Optional
+from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_active_user
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.proxy_config import ProxyConfig, ProxyProtocol, ProxyStatus
+from app.models.user import User
 from app.schemas.system import (
     ProxyActionResponse,
     ProxyCreate,
@@ -45,9 +47,10 @@ TEST_URLS = [
 
 @router.get("", response_model=ProxyListResponse)
 async def list_proxies(
-    protocol: Optional[ProxyProtocol] = Query(None, description="按协议过滤"),
-    status: Optional[ProxyStatus] = Query(None, description="按状态过滤"),
-    enabled: Optional[bool] = Query(None, description="按启用状态过滤"),
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    protocol: ProxyProtocol | None = Query(None, description="按协议过滤"),
+    status: ProxyStatus | None = Query(None, description="按状态过滤"),
+    enabled: bool | None = Query(None, description="按启用状态过滤"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -55,7 +58,7 @@ async def list_proxies(
 
     支持按协议、状态和启用状态过滤。
     """
-    stmt = select(ProxyConfig)
+    stmt = select(ProxyConfig).where(ProxyConfig.user_id == current_user.id)
 
     if protocol:
         stmt = stmt.where(ProxyConfig.protocol == protocol)
@@ -78,6 +81,7 @@ async def list_proxies(
 @router.post("", response_model=ProxyActionResponse)
 async def create_proxy(
     data: ProxyCreate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -86,16 +90,17 @@ async def create_proxy(
     创建后可通过测试端点验证代理可用性。
     """
     proxy = ProxyConfig(
+        user_id=current_user.id,
         name=data.name,
         protocol=data.protocol,
         host=data.host,
         port=data.port,
         username=data.username,
-        password=data.password,
+        password_encrypted=data.password,  # TODO: 实际加密
         weight=data.weight,
         priority=data.priority,
         notes=data.notes,
-        status=ProxyStatus.UNKNOWN,
+        status=ProxyStatus.ACTIVE,
         enabled=True,
     )
 
@@ -115,18 +120,20 @@ async def create_proxy(
 
 @router.get("/{proxy_id}", response_model=ProxyResponse)
 async def get_proxy(
-    proxy_id: int,
+    proxy_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """获取代理详情"""
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
     return ProxyResponse.model_validate(proxy)
 
 
 @router.put("/{proxy_id}", response_model=ProxyActionResponse)
 async def update_proxy(
-    proxy_id: int,
+    proxy_id: str,
     data: ProxyUpdate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -134,7 +141,7 @@ async def update_proxy(
 
     可以更新名称、主机、端口、认证信息等。
     """
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
 
     # 更新字段
     update_dict = data.model_dump(exclude_unset=True)
@@ -156,11 +163,12 @@ async def update_proxy(
 
 @router.delete("/{proxy_id}", response_model=ProxyActionResponse)
 async def delete_proxy(
-    proxy_id: int,
+    proxy_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """删除代理"""
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
 
     name = proxy.name
     await db.delete(proxy)
@@ -177,7 +185,8 @@ async def delete_proxy(
 
 @router.post("/{proxy_id}/test", response_model=ProxyActionResponse)
 async def test_proxy(
-    proxy_id: int,
+    proxy_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -185,7 +194,7 @@ async def test_proxy(
 
     通过代理访问测试 URL 验证代理是否正常工作。
     """
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
 
     # 构建代理 URL
     proxy_url = _build_proxy_url(proxy)
@@ -234,11 +243,12 @@ async def test_proxy(
 
 @router.post("/{proxy_id}/enable", response_model=ProxyActionResponse)
 async def enable_proxy(
-    proxy_id: int,
+    proxy_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """启用代理"""
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
 
     proxy.enabled = True
     await db.commit()
@@ -256,11 +266,12 @@ async def enable_proxy(
 
 @router.post("/{proxy_id}/disable", response_model=ProxyActionResponse)
 async def disable_proxy(
-    proxy_id: int,
+    proxy_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """禁用代理"""
-    proxy = await _get_proxy_or_404(db, proxy_id)
+    proxy = await _get_proxy_or_404(db, proxy_id, current_user.id)
 
     proxy.enabled = False
     await db.commit()
@@ -278,6 +289,7 @@ async def disable_proxy(
 
 @router.post("/test-all", response_model=ProxyListResponse)
 async def test_all_proxies(
+    current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -285,7 +297,10 @@ async def test_all_proxies(
 
     并发测试所有启用状态的代理。
     """
-    stmt = select(ProxyConfig).where(ProxyConfig.enabled == True)  # noqa: E712
+    stmt = select(ProxyConfig).where(
+        ProxyConfig.user_id == current_user.id,
+        ProxyConfig.enabled == True,  # noqa: E712
+    )
     result = await db.execute(stmt)
     proxies = result.scalars().all()
 
@@ -320,10 +335,14 @@ async def test_all_proxies(
 
 async def _get_proxy_or_404(
     db: AsyncSession,
-    proxy_id: int,
+    proxy_id: str,
+    user_id: str,
 ) -> ProxyConfig:
     """获取代理或抛出 404 异常"""
-    stmt = select(ProxyConfig).where(ProxyConfig.id == proxy_id)
+    stmt = select(ProxyConfig).where(
+        ProxyConfig.id == proxy_id,
+        ProxyConfig.user_id == user_id,
+    )
     result = await db.execute(stmt)
     proxy = result.scalar_one_or_none()
 

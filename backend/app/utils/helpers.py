@@ -2,8 +2,7 @@
 
 import hashlib
 from datetime import datetime
-from typing import Optional
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 
 def normalize_url(url: str) -> str:
@@ -84,9 +83,9 @@ def compute_url_hash(url: str) -> str:
 
 
 def format_datetime(
-    dt: Optional[datetime],
+    dt: datetime | None,
     format_str: str = "%Y-%m-%d %H:%M:%S"
-) -> Optional[str]:
+) -> str | None:
     """
     Format a datetime object to string.
 

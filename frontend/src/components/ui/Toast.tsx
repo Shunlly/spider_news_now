@@ -1,8 +1,8 @@
 /**
- * Toast 通知组件
- * Toast Notification Component
+ * HUD 风格 Toast 通知组件
+ * HUD-style Toast Notification Component
  *
- * Stone 色系极简设计
+ * 深色主题 + 发光效果
  */
 
 import { useEffect, useState, useCallback, createContext, useContext } from 'react'
@@ -31,35 +31,39 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
-// Toast 图标配置
+// HUD Toast 配置
 const toastConfig = {
   success: {
     icon: CheckCircle,
-    bg: 'bg-green-50',
-    border: 'border-green-200',
-    text: 'text-green-800',
-    iconColor: 'text-green-500',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    text: 'text-emerald-400',
+    iconColor: 'text-emerald-400',
+    glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]',
   },
   error: {
     icon: XCircle,
-    bg: 'bg-red-50',
-    border: 'border-red-200',
-    text: 'text-red-800',
-    iconColor: 'text-red-500',
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/30',
+    text: 'text-red-400',
+    iconColor: 'text-red-400',
+    glow: 'shadow-[0_0_15px_rgba(239,68,68,0.2)]',
   },
   warning: {
     icon: AlertTriangle,
-    bg: 'bg-yellow-50',
-    border: 'border-yellow-200',
-    text: 'text-yellow-800',
-    iconColor: 'text-yellow-500',
+    bg: 'bg-yellow-500/10',
+    border: 'border-yellow-500/30',
+    text: 'text-yellow-400',
+    iconColor: 'text-yellow-400',
+    glow: 'shadow-[0_0_15px_rgba(234,179,8,0.2)]',
   },
   info: {
     icon: Info,
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    text: 'text-blue-800',
-    iconColor: 'text-blue-500',
+    bg: 'bg-cyan-500/10',
+    border: 'border-cyan-500/30',
+    text: 'text-cyan-400',
+    iconColor: 'text-cyan-400',
+    glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]',
   },
 }
 
@@ -87,9 +91,10 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg min-w-[300px] max-w-[400px]',
+        'flex items-center gap-3 px-4 py-3 rounded-lg border backdrop-blur-xl min-w-[300px] max-w-[400px]',
         config.bg,
         config.border,
+        config.glow,
         'transition-all duration-300',
         isExiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'
       )}
@@ -99,8 +104,8 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       <button
         onClick={handleClose}
         className={clsx(
-          'p-1 rounded-lg hover:bg-black/5 transition-colors',
-          config.text
+          'p-1 rounded-lg hover:bg-slate-700/50 transition-colors',
+          'text-slate-500 hover:text-slate-300'
         )}
       >
         <X className="w-4 h-4" />

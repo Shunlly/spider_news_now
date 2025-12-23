@@ -10,9 +10,9 @@ NewsArticle SQLAlchemy Model
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, String, Integer, DateTime, Index, ForeignKey, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -69,21 +69,21 @@ class NewsArticle(Base):
         String(255), nullable=False, index=True,
         comment="文章标题"
     )
-    content_hash: Mapped[Optional[str]] = mapped_column(
+    content_hash: Mapped[str | None] = mapped_column(
         String(64), index=True, nullable=True,
         comment="内容 SHA256 哈希"
     )
 
     # 全文搜索和去重字段（新增）
-    content_text: Mapped[Optional[str]] = mapped_column(
+    content_text: Mapped[str | None] = mapped_column(
         Text, nullable=True,
         comment="正文纯文本（用于全文搜索）"
     )
-    content_url: Mapped[Optional[str]] = mapped_column(
+    content_url: Mapped[str | None] = mapped_column(
         String(512), nullable=True,
         comment="正文存储路径（MinIO/RustFS）"
     )
-    simhash: Mapped[Optional[int]] = mapped_column(
+    simhash: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, index=True,
         comment="内容 SimHash 指纹（用于相似内容检测）"
     )
@@ -104,7 +104,7 @@ class NewsArticle(Base):
         String(50), ForeignKey("news_sources.source_key"), nullable=False, index=True,
         comment="来源标识"
     )
-    category: Mapped[Optional[str]] = mapped_column(
+    category: Mapped[str | None] = mapped_column(
         String(50), index=True, nullable=True,
         comment="文章分类"
     )

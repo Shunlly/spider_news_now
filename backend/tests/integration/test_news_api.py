@@ -98,7 +98,7 @@ class TestNewsAPI:
     @pytest.mark.asyncio
     async def test_get_article_not_found(self, client: AsyncClient, db_session):
         """Test retrieving non-existent article."""
-        response = await client.get("/api/v1/news/articles/99999")
+        response = await client.get("/api/v1/news/articles/00000000-0000-0000-0000-000000000000")
 
         assert response.status_code == 404
 

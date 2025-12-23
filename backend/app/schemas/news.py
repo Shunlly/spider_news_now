@@ -1,9 +1,8 @@
 """News article Pydantic schemas (request/response models)."""
 
 from datetime import datetime
-from typing import List, Optional
 
-from pydantic import BaseModel, HttpUrl, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class NewsArticleBase(BaseModel):
@@ -12,7 +11,7 @@ class NewsArticleBase(BaseModel):
     url: HttpUrl
     title: str = Field(..., min_length=1, max_length=255)
     source_key: str = Field(..., pattern="^[a-z0-9_]+$")
-    category: Optional[str] = Field(None, max_length=50)
+    category: str | None = Field(None, max_length=50)
     published_at: datetime
 
 
@@ -20,13 +19,13 @@ class NewsArticleCreate(NewsArticleBase):
     """Schema for creating a new article."""
 
     url_hash: str = Field(..., min_length=64, max_length=64)
-    content_hash: Optional[str] = Field(None, min_length=64, max_length=64)
+    content_hash: str | None = Field(None, min_length=64, max_length=64)
 
 
 class NewsArticleResponse(NewsArticleBase):
     """Schema for article API responses."""
 
-    id: int
+    id: str
     scraped_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -37,14 +36,14 @@ class NewsArticleDetailResponse(NewsArticleResponse):
 
     created_at: datetime
     url_hash: str
-    content_text: Optional[str] = None
-    content_hash: Optional[str] = None
+    content_text: str | None = None
+    content_hash: str | None = None
 
 
 class NewsArticleListResponse(BaseModel):
     """Schema for paginated article list responses."""
 
-    data: List[NewsArticleResponse]
+    data: list[NewsArticleResponse]
     total: int
     page: int
     page_size: int
@@ -58,9 +57,9 @@ class NewsArticleGroupedResponse(BaseModel):
         source_key: str
         source_name: str
         article_count: int
-        articles: List[NewsArticleResponse]
+        articles: list[NewsArticleResponse]
 
-    groups: List[SourceGroup]
+    groups: list[SourceGroup]
     total_sources: int
     filters_applied: dict = {}
 
@@ -72,7 +71,7 @@ class NewsStatisticsResponse(BaseModel):
         source_key: str
         source_name: str
         article_count: int
-        last_scraped: Optional[datetime]
+        last_scraped: datetime | None
 
     class CategoryStats(BaseModel):
         category: str
@@ -80,8 +79,9 @@ class NewsStatisticsResponse(BaseModel):
 
     total_articles: int
     articles_today: int
+    articles_yesterday: int
     sources_active: int
     sources_failed: int
-    last_scrape_time: Optional[datetime]
-    by_source: List[SourceStats]
-    by_category: List[CategoryStats]
+    last_scrape_time: datetime | None
+    by_source: list[SourceStats]
+    by_category: list[CategoryStats]

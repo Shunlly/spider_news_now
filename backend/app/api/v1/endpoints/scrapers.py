@@ -3,28 +3,28 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, desc, update, func
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_active_user, require_quota
 from app.core.logging import get_logger
 from app.db.session import get_db
 from app.models.news_source import NewsSource
 from app.models.scraper_run import ScraperRun
 from app.models.user import User
 from app.schemas.scraper import (
-    ScraperTriggerResponse,
-    ScraperStatusResponse,
-    ScraperStatusListResponse,
-    ScraperRunResponse,
-    ScraperRunListResponse,
     NewsSourceCreate,
     NewsSourceResponse,
     ScraperConfigUpdate,
     ScraperEnableResponse,
+    ScraperRunListResponse,
+    ScraperRunResponse,
+    ScraperStatusListResponse,
+    ScraperStatusResponse,
+    ScraperTriggerResponse,
 )
 from app.services.permission_service import apply_user_filter
-from app.tasks.scraper_tasks import trigger_scraper_now, trigger_content_parser_now
+from app.tasks.scraper_tasks import trigger_content_parser_now, trigger_scraper_now
 
 logger = get_logger(__name__)
 
@@ -35,6 +35,7 @@ router = APIRouter(prefix="/scrapers", tags=["scrapers"])
 async def trigger_scraper(
     source_key: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
+    quota_info: Annotated[dict, Depends(require_quota())],
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -55,6 +56,7 @@ async def trigger_scraper(
     Raises:
         404: Source not found
         409: Scraper already running
+        429: Quota exceeded
     """
     # Verify source exists and user has permission
     stmt = select(NewsSource).where(NewsSource.source_key == source_key)
@@ -75,16 +77,32 @@ async def trigger_scraper(
             detail=f"Scraper for '{source_key}' is already running"
         )
 
-    # Trigger scraper asynchronously (fire and forget)
-    import asyncio
-    asyncio.create_task(trigger_scraper_now(source_key))
+    # 配额已由 require_quota() 依赖检查，并发槽位已获取
+    # Quota already checked by require_quota() dependency, concurrent slot acquired
 
-    logger.info("Manual trigger initiated", extra={"source_key": source_key, "user_id": current_user.id})
+    # Trigger scraper asynchronously (fire and forget)
+    # Note: The scraper task will release concurrent slot and consume daily quota on completion
+    import asyncio
+    asyncio.create_task(trigger_scraper_now(
+        source_key,
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+    ))
+
+    logger.info(
+        "Manual trigger initiated",
+        extra={
+            "source_key": source_key,
+            "user_id": current_user.id,
+            "daily_remaining": quota_info["daily_remaining"],
+            "concurrent_used": quota_info["concurrent_used"],
+        }
+    )
 
     from datetime import datetime
     return ScraperTriggerResponse(
         message="Scraper triggered successfully",
-        run_id=0,  # Will be assigned when job starts
+        run_id="pending",  # Will be assigned when job starts
         source_key=source_key,
         started_at=datetime.now(),
         status="queued",
@@ -245,7 +263,7 @@ async def create_scraper(
         raise HTTPException(
             status_code=400,
             detail=f"Cannot import scraper module '{source_data.scraper_module}': {str(e)}"
-        )
+        ) from None
 
     # Create new source with user_id
     new_source = NewsSource(
@@ -497,6 +515,7 @@ async def get_scraper_runs(
 @router.post("/content-parser/trigger", status_code=202)
 async def trigger_content_parser(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    quota_info: Annotated[dict, Depends(require_quota())],
     batch_size: int = Query(50, ge=1, le=200, description="Number of articles to process"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -510,13 +529,24 @@ async def trigger_content_parser(
 
     Returns:
         202 Accepted with task status
+
+    Raises:
+        429: Quota exceeded
     """
     import asyncio
 
+    # 配额已由 require_quota() 依赖检查
     # 异步执行，不阻塞
     asyncio.create_task(trigger_content_parser_now(batch_size))
 
-    logger.info("Content parser triggered", extra={"batch_size": batch_size, "user_id": current_user.id})
+    logger.info(
+        "Content parser triggered",
+        extra={
+            "batch_size": batch_size,
+            "user_id": current_user.id,
+            "daily_remaining": quota_info["daily_remaining"],
+        }
+    )
 
     return {
         "message": "Content parser triggered successfully",

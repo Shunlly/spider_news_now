@@ -10,25 +10,30 @@ Telegram Service - 基于 Telethon MTProto API 的 Telegram 服务
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any
 
 from telethon import TelegramClient
+from telethon.errors import (
+    ChannelPrivateError,
+    FloodWaitError,
+    PhoneCodeExpiredError,
+    PhoneCodeInvalidError,
+    SessionPasswordNeededError,
+    UsernameNotOccupiedError,
+)
 from telethon.sessions import StringSession
 from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
 from telethon.tl.functions.contacts import ResolveUsernameRequest, SearchRequest
 from telethon.tl.types import (
-    Channel, Chat, User,
-    Message, MessageMediaPhoto, MessageMediaDocument,
-    MessageEntityTextUrl, MessageEntityUrl,
+    Channel,
+    Chat,
     KeyboardButtonUrl,
-)
-from telethon.errors import (
-    SessionPasswordNeededError,
-    PhoneCodeInvalidError,
-    PhoneCodeExpiredError,
-    ChannelPrivateError,
-    UsernameNotOccupiedError,
-    FloodWaitError,
+    Message,
+    MessageEntityTextUrl,
+    MessageEntityUrl,
+    MessageMediaDocument,
+    MessageMediaPhoto,
+    User,
 )
 
 from app.core.logging import get_logger
@@ -44,19 +49,19 @@ class TelegramService:
     """
 
     def __init__(self):
-        self.client: Optional[TelegramClient] = None
-        self.api_id: Optional[int] = None
-        self.api_hash: Optional[str] = None
-        self.string_session: Optional[str] = None
+        self.client: TelegramClient | None = None
+        self.api_id: int | None = None
+        self.api_hash: str | None = None
+        self.string_session: str | None = None
         self._connected = False
-        self._user_info: Optional[Dict] = None
+        self._user_info: dict | None = None
 
     async def init_client(
         self,
         api_id: int,
         api_hash: str,
         string_session: str = "",
-        proxy: Optional[Dict] = None
+        proxy: dict | None = None
     ) -> bool:
         """
         初始化 Telegram 客户端
@@ -122,7 +127,7 @@ class TelegramService:
             logger.error(f"Failed to initialize Telegram client: {e}")
             return False
 
-    async def send_code(self, phone: str) -> Dict[str, Any]:
+    async def send_code(self, phone: str) -> dict[str, Any]:
         """
         发送登录验证码
 
@@ -156,8 +161,8 @@ class TelegramService:
         phone: str,
         code: str,
         phone_code_hash: str,
-        password: Optional[str] = None
-    ) -> Dict[str, Any]:
+        password: str | None = None
+    ) -> dict[str, Any]:
         """
         验证登录
 
@@ -236,7 +241,7 @@ class TelegramService:
             logger.error(f"Sign in failed: {e}")
             return {"success": False, "message": str(e)}
 
-    async def connect_with_session(self, string_session: str) -> Dict[str, Any]:
+    async def connect_with_session(self, string_session: str) -> dict[str, Any]:
         """
         使用已有的 StringSession 连接
 
@@ -277,8 +282,8 @@ class TelegramService:
         self,
         limit: int = 100,
         offset: int = 0,
-        filter_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        filter_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         获取已加入的对话列表（频道、群组、私聊）
 
@@ -336,7 +341,7 @@ class TelegramService:
             logger.error(f"Failed to get dialogs: {e}")
             return []
 
-    async def search_channel(self, username: str) -> Dict[str, Any]:
+    async def search_channel(self, username: str) -> dict[str, Any]:
         """
         搜索频道/用户
 
@@ -413,7 +418,7 @@ class TelegramService:
             logger.error(f"Search channel failed: {e}")
             return {"success": False, "message": str(e)}
 
-    async def search_public(self, query: str, limit: int = 20) -> Dict[str, Any]:
+    async def search_public(self, query: str, limit: int = 20) -> dict[str, Any]:
         """
         通过关键词搜索公开频道/群组
 
@@ -515,7 +520,7 @@ class TelegramService:
             logger.error(f"Search public failed: {e}")
             return {"success": False, "message": str(e), "entities": []}
 
-    async def join_channel(self, channel: str) -> Dict[str, Any]:
+    async def join_channel(self, channel: str) -> dict[str, Any]:
         """
         加入频道
 
@@ -563,7 +568,7 @@ class TelegramService:
             logger.error(f"Join channel failed: {e}")
             return {"success": False, "message": str(e)}
 
-    async def leave_channel(self, channel_id: int) -> Dict[str, Any]:
+    async def leave_channel(self, channel_id: int) -> dict[str, Any]:
         """
         退出频道
 
@@ -591,9 +596,9 @@ class TelegramService:
         channel_id: int,
         limit: int = 100,
         offset_id: int = 0,
-        min_date: Optional[datetime] = None,
-        max_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        min_date: datetime | None = None,
+        max_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """
         获取频道历史消息
 
@@ -635,7 +640,7 @@ class TelegramService:
             logger.error(f"Get messages failed: {e}")
             return []
 
-    def _parse_message(self, msg: Message) -> Optional[Dict[str, Any]]:
+    def _parse_message(self, msg: Message) -> dict[str, Any] | None:
         """
         解析消息
 
@@ -751,7 +756,7 @@ class TelegramService:
 
         return text
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """断开连接"""
         if self.client:
             await self.client.disconnect()
@@ -764,13 +769,13 @@ class TelegramService:
         return self._connected
 
     @property
-    def user_info(self) -> Optional[Dict]:
+    def user_info(self) -> dict | None:
         """当前用户信息"""
         return self._user_info
 
 
 # 全局服务实例
-_telegram_service: Optional[TelegramService] = None
+_telegram_service: TelegramService | None = None
 
 
 def get_telegram_service() -> TelegramService:

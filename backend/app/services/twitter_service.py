@@ -9,16 +9,16 @@ Twitter Service - 基于 Cookie 认证的 Twitter 数据服务
 5. 获取关注列表
 """
 
-import time
 import asyncio
-from typing import Optional, Dict, Any
+import time
+from typing import Any
 from urllib.parse import quote
 
 import httpx
 from playwright.async_api import async_playwright
 
-from app.core.logging import get_logger
 from app.core.config import settings
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -45,13 +45,13 @@ class TwitterService:
     BEARER_TOKEN = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 
     def __init__(self):
-        self.auth_token: Optional[str] = None
-        self.ct0: Optional[str] = None
+        self.auth_token: str | None = None
+        self.ct0: str | None = None
         self._connected = False
-        self._user_info: Optional[Dict] = None
-        self.proxy: Optional[str] = None
+        self._user_info: dict | None = None
+        self.proxy: str | None = None
 
-    def _get_headers(self, referer: str = "https://x.com") -> Dict[str, str]:
+    def _get_headers(self, referer: str = "https://x.com") -> dict[str, str]:
         """构建请求头"""
         headers = {
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -71,8 +71,8 @@ class TwitterService:
         self,
         auth_token: str,
         ct0: str,
-        proxy: Optional[str] = None
-    ) -> Dict[str, Any]:
+        proxy: str | None = None
+    ) -> dict[str, Any]:
         """
         使用 Cookie 连接 Twitter
 
@@ -123,7 +123,7 @@ class TwitterService:
             logger.error(f"Twitter connect failed: {e}")
             return {"success": False, "message": str(e)}
 
-    async def _get_current_user(self) -> Optional[Dict]:
+    async def _get_current_user(self) -> dict | None:
         """获取当前登录用户信息 - 使用 settings API"""
         # 使用 Twitter settings API 获取当前用户信息
         url = "https://api.twitter.com/1.1/account/settings.json"
@@ -166,7 +166,7 @@ class TwitterService:
             logger.error(f"Get current user error: {e}")
             return None
 
-    async def get_user_by_screen_name(self, screen_name: str) -> Dict[str, Any]:
+    async def get_user_by_screen_name(self, screen_name: str) -> dict[str, Any]:
         """
         通过用户名获取用户信息
 
@@ -230,9 +230,9 @@ class TwitterService:
         self,
         user_id: str,
         count: int = 20,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
         include_retweets: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         获取用户推文列表
 
@@ -307,7 +307,7 @@ class TwitterService:
             logger.error(f"Get user tweets failed: {e}")
             return {"success": False, "message": str(e), "tweets": []}
 
-    def _parse_tweet_entry(self, entry: Dict, include_retweets: bool = False) -> Optional[Dict]:
+    def _parse_tweet_entry(self, entry: dict, include_retweets: bool = False) -> dict | None:
         """解析推文条目"""
         try:
             entry_id = entry.get("entryId", "")
@@ -346,7 +346,7 @@ class TwitterService:
                 edit_control = tweet_results.get("edit_control", {})
                 tweet_msecs = int(edit_control.get("editable_until_msecs", 0)) - 3600000
                 tweet_time = stamp_to_time(tweet_msecs) if tweet_msecs > 0 else None
-            except:
+            except (ValueError, TypeError, KeyError):
                 tweet_time = None
 
             # 解析媒体
@@ -398,8 +398,8 @@ class TwitterService:
         self,
         query: str,
         count: int = 20,
-        cursor: Optional[str] = None
-    ) -> Dict[str, Any]:
+        cursor: str | None = None
+    ) -> dict[str, Any]:
         """
         搜索推文
 
@@ -477,7 +477,7 @@ class TwitterService:
         self,
         query: str,
         count: int = 20
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         使用 Playwright 搜索推文
 
@@ -547,7 +547,7 @@ class TwitterService:
                 # 监听 API 响应
                 api_responses = []
 
-                async def handle_response(response):
+                async def handle_response(response: Any) -> None:
                     url = response.url
                     if "SearchTimeline" in url or "adaptive.json" in url or "search" in url:
                         try:
@@ -603,13 +603,13 @@ class TwitterService:
                     # 等待推文元素出现
                     try:
                         await page.wait_for_selector('article[data-testid="tweet"]', timeout=10000)
-                    except:
+                    except Exception:
                         logger.warning("No tweet elements found on page")
                         # 截图调试
                         try:
                             screenshot = await page.screenshot()
                             logger.info(f"Page screenshot taken, size: {len(screenshot)} bytes")
-                        except:
+                        except Exception:
                             pass
 
                     tweet_elements = await page.query_selector_all('article[data-testid="tweet"]')
@@ -710,10 +710,10 @@ class TwitterService:
                 return int(float(text.replace("M", "")) * 1000000)
             else:
                 return int(text)
-        except:
+        except (ValueError, TypeError):
             return 0
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """断开连接"""
         self.auth_token = None
         self.ct0 = None
@@ -726,13 +726,13 @@ class TwitterService:
         return self._connected
 
     @property
-    def user_info(self) -> Optional[Dict]:
+    def user_info(self) -> dict | None:
         """当前用户信息"""
         return self._user_info
 
 
 # 全局服务实例
-_twitter_service: Optional[TwitterService] = None
+_twitter_service: TwitterService | None = None
 
 
 def get_twitter_service() -> TwitterService:

@@ -1,9 +1,62 @@
 """Structured logging configuration."""
 
 import logging
+import re
 import sys
 
 from app.core.config import settings
+
+# 敏感字段模式 - 用于过滤日志中的敏感数据
+SENSITIVE_PATTERNS = [
+    (re.compile(r'(password["\']?\s*[:=]\s*["\']?)[^"\'}\s,]+', re.IGNORECASE), r'\1***'),
+    (re.compile(r'(token["\']?\s*[:=]\s*["\']?)[^"\'}\s,]+', re.IGNORECASE), r'\1***'),
+    (re.compile(r'(secret["\']?\s*[:=]\s*["\']?)[^"\'}\s,]+', re.IGNORECASE), r'\1***'),
+    (re.compile(r'(api[_-]?key["\']?\s*[:=]\s*["\']?)[^"\'}\s,]+', re.IGNORECASE), r'\1***'),
+    (re.compile(r'(authorization["\']?\s*[:=]\s*["\']?)[^"\'}\s,]+', re.IGNORECASE), r'\1***'),
+    (re.compile(r'(Bearer\s+)[A-Za-z0-9_-]+\.?[A-Za-z0-9_-]*\.?[A-Za-z0-9_-]*', re.IGNORECASE), r'\1***'),
+]
+
+
+def sanitize_message(message: str) -> str:
+    """
+    过滤日志消息中的敏感数据
+
+    Args:
+        message: 原始日志消息
+
+    Returns:
+        脱敏后的日志消息
+    """
+    result = message
+    for pattern, replacement in SENSITIVE_PATTERNS:
+        result = pattern.sub(replacement, result)
+    return result
+
+
+class SensitiveDataFilter(logging.Filter):
+    """
+    敏感数据过滤器
+
+    过滤日志记录中的密码、Token 等敏感信息
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """过滤敏感数据"""
+        # 过滤消息
+        if isinstance(record.msg, str):
+            record.msg = sanitize_message(record.msg)
+
+        # 过滤 args
+        if record.args:
+            sanitized_args = []
+            for arg in record.args:
+                if isinstance(arg, str):
+                    sanitized_args.append(sanitize_message(arg))
+                else:
+                    sanitized_args.append(arg)
+            record.args = tuple(sanitized_args)
+
+        return True
 
 
 class StructuredFormatter(logging.Formatter):
@@ -45,6 +98,9 @@ def setup_logging() -> None:
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(StructuredFormatter())
+
+    # Add sensitive data filter to sanitize passwords, tokens, etc.
+    console_handler.addFilter(SensitiveDataFilter())
 
     # Configure root logger
     root_logger = logging.getLogger()

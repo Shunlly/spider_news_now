@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.services.scraper_service import ScraperService
 from app.models.news_source import NewsSource
+from app.services.scraper_service import ScraperService
 
 
 class TestScraperService:
@@ -35,11 +35,12 @@ class TestScraperService:
         assert status["failed"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_scraper_status_with_sources(self, db_session):
+    async def test_get_scraper_status_with_sources(self, db_session, test_user):
         """Test status retrieval with multiple sources."""
         # Add test sources
         sources = [
             NewsSource(
+                user_id=test_user.id,
                 source_key="test1",
                 display_name="Test 1",
                 scraper_module="test",
@@ -47,6 +48,7 @@ class TestScraperService:
                 status="idle",
             ),
             NewsSource(
+                user_id=test_user.id,
                 source_key="test2",
                 display_name="Test 2",
                 scraper_module="test",
@@ -54,6 +56,7 @@ class TestScraperService:
                 status="running",
             ),
             NewsSource(
+                user_id=test_user.id,
                 source_key="test3",
                 display_name="Test 3",
                 scraper_module="test",

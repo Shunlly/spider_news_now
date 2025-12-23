@@ -12,17 +12,16 @@ PIL Image Generation + Redis Storage
 - 中文注释说明核心逻辑
 """
 
-import io
 import base64
+import io
 import random
 import secrets
 import string
 import uuid
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import redis.asyncio as redis
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -63,7 +62,7 @@ class CaptchaService:
 
     def __init__(self):
         """初始化 Redis 连接"""
-        self._redis: Optional[redis.Redis] = None
+        self._redis: redis.Redis | None = None
 
     async def get_redis(self) -> redis.Redis:
         """获取 Redis 连接（延迟初始化）"""
@@ -100,7 +99,7 @@ class CaptchaService:
         for font_path in font_paths:
             try:
                 return ImageFont.truetype(font_path, size)
-            except (IOError, OSError):
+            except OSError:
                 continue
 
         # 回退到默认字体
@@ -201,7 +200,7 @@ class CaptchaService:
         await r.expire(key, settings.CAPTCHA_EXPIRE_SECONDS)
         logger.debug("Captcha state stored", extra={"token": token, "ttl": settings.CAPTCHA_EXPIRE_SECONDS})
 
-    async def _get_captcha_state(self, token: str) -> Optional[CaptchaState]:
+    async def _get_captcha_state(self, token: str) -> CaptchaState | None:
         """从 Redis 获取验证码状态"""
         r = await self.get_redis()
         key = self._get_redis_key(token)
@@ -272,7 +271,7 @@ class CaptchaService:
             image_base64=image_base64
         )
 
-    async def verify(self, token: str, submitted_code: str) -> Tuple[bool, Optional[str], str]:
+    async def verify(self, token: str, submitted_code: str) -> tuple[bool, str | None, str]:
         """
         验证用户输入的验证码
 
@@ -351,6 +350,43 @@ class CaptchaService:
 
         await self._delete_captcha(token)
         return True
+
+    async def verify_code(self, token: str, code: str) -> bool:
+        """
+        简单验证验证码（用于注册等场景）
+
+        Args:
+            token: 验证码 token
+            code: 用户输入的验证码
+
+        Returns:
+            验证是否成功
+        """
+        # 开发环境跳过验证
+        if settings.SKIP_CAPTCHA:
+            logger.warning("Captcha verification skipped (SKIP_CAPTCHA=True)")
+            return True
+
+        # 获取验证码状态
+        state = await self._get_captcha_state(token)
+
+        if state is None:
+            logger.warning("Captcha not found or expired", extra={"token": token})
+            return False
+
+        # 检查是否已验证
+        if state.verified:
+            logger.warning("Captcha already verified", extra={"token": token})
+            return False
+
+        # 验证码比较（不区分大小写）
+        if code.lower() == state.code.lower():
+            await self._delete_captcha(token)
+            logger.info("Captcha verified successfully", extra={"token": token})
+            return True
+
+        logger.info("Captcha verification failed", extra={"token": token})
+        return False
 
 
 # 全局服务实例

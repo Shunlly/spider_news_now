@@ -1,14 +1,16 @@
 """
 认证 API 端点 - Auth API Endpoints
-Login, Logout, Captcha, Token Refresh
+Login, Logout, Captcha, Token Refresh, Register, Profile
 
 提供用户认证相关的 API：
 - GET /captcha - 获取滑块验证码
 - POST /verify-captcha - 验证滑块位置
+- POST /register - 用户注册
 - POST /login - 用户登录
 - POST /logout - 用户登出
 - POST /refresh - 刷新访问令牌
 - GET /me - 获取当前用户信息
+- PUT /me - 更新个人信息
 
 遵循宪法要求：
 - 完整类型提示
@@ -31,6 +33,9 @@ from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     MessageResponse,
+    ProfileUpdateRequest,
+    RegisterRequest,
+    RegisterResponse,
     TokenResponse,
 )
 from app.schemas.user import UserResponse
@@ -70,7 +75,7 @@ async def get_captcha() -> CaptchaResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="验证码生成失败"
-        )
+        ) from None
 
 
 @router.post(
@@ -101,6 +106,67 @@ async def verify_captcha(request: CaptchaVerifyRequest) -> CaptchaVerifyResponse
         success=success,
         verified_token=verified_token,
         message=message
+    )
+
+
+# ============== 注册端点 ==============
+
+
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="用户注册",
+    description="注册新用户账号"
+)
+async def register(
+    request: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> RegisterResponse:
+    """
+    用户注册
+
+    请求参数:
+    - username: 用户名（字母开头，只能包含字母、数字、下划线）
+    - email: 邮箱地址
+    - password: 密码（至少8位）
+    - captcha_token: 验证码 Token
+    - captcha_code: 验证码
+
+    返回:
+    - message: 注册结果消息
+    - user: 注册的用户信息
+    """
+    # 验证验证码
+    is_valid = await captcha_service.verify_code(
+        token=request.captcha_token,
+        code=request.captcha_code
+    )
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="验证码错误或已过期"
+        )
+
+    # 注册用户
+    user, error_message = await auth_service.register_user(
+        db=db,
+        username=request.username,
+        email=request.email,
+        password=request.password
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message
+        )
+
+    logger.info("User registered", extra={"user_id": user.id, "username": user.username})
+
+    return RegisterResponse(
+        message="注册成功",
+        user=UserResponse.model_validate(user)
     )
 
 
@@ -277,3 +343,44 @@ async def get_current_user_info(
     返回用户 ID、用户名、邮箱、角色等信息。
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    summary="更新个人信息",
+    description="更新当前用户的个人信息"
+)
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """
+    更新个人信息
+
+    请求参数:
+    - email: 新邮箱地址（可选）
+    - current_password: 当前密码（修改密码时必填）
+    - new_password: 新密码（可选）
+
+    返回更新后的用户信息
+    """
+    # 更新用户信息
+    updated_user, error_message = await auth_service.update_profile(
+        db=db,
+        user=current_user,
+        email=request.email,
+        current_password=request.current_password,
+        new_password=request.new_password
+    )
+
+    if updated_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message
+        )
+
+    logger.info("User profile updated", extra={"user_id": current_user.id})
+
+    return UserResponse.model_validate(updated_user)

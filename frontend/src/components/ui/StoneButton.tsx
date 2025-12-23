@@ -1,6 +1,8 @@
 /**
- * Stone Button 组件
- * Stone-themed Button Component
+ * HUD 风格 Button 组件
+ * HUD-style Button Component
+ *
+ * 深色主题 + 发光效果
  */
 
 import { forwardRef, ButtonHTMLAttributes, ReactNode } from 'react'
@@ -28,13 +30,13 @@ export const StoneButton = forwardRef<HTMLButtonElement, StoneButtonProps>(
     },
     ref
   ) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0'
+    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none'
 
     const variants = {
-      primary: 'bg-stone-900 text-white hover:bg-stone-800 hover:shadow-stone-md hover:-translate-y-0.5',
-      secondary: 'bg-white text-stone-700 border border-stone-200 hover:border-stone-300 hover:bg-stone-50',
-      ghost: 'bg-transparent text-stone-600 hover:bg-stone-100 hover:text-stone-900',
-      danger: 'bg-red-600 text-white hover:bg-red-700 hover:shadow-stone-md hover:-translate-y-0.5',
+      primary: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:-translate-y-0.5',
+      secondary: 'bg-slate-800/50 text-slate-300 border border-slate-700/50 hover:border-slate-600 hover:bg-slate-800/70 hover:text-slate-200',
+      ghost: 'bg-transparent text-slate-400 hover:bg-slate-800/50 hover:text-cyan-400',
+      danger: 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:-translate-y-0.5',
     }
 
     const sizes = {

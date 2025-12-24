@@ -25,8 +25,22 @@ depends_on: Union[str, Sequence[str], None] = None
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+def table_exists(table_name: str) -> bool:
+    """检查表是否已存在"""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = DATABASE() AND table_name = :table_name"
+    ), {"table_name": table_name})
+    return result.scalar() > 0
+
+
 def upgrade() -> None:
     """创建 users 表并插入默认管理员账户"""
+    # 检查表是否已存在（防止重复创建）
+    if table_exists('users'):
+        return
+
     # MySQL 不需要单独创建 ENUM 类型，在列定义中直接使用
     # 创建 users 表
     op.create_table(

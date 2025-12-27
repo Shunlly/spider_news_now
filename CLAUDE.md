@@ -65,5 +65,11 @@ docker-compose exec backend python scripts/verify_migration.py
 - `POST /api/v1/auth/refresh` - Refresh access token
 - `GET /api/v1/auth/me` - Get current user info
 
+## Git Commit Rules
+
+- 提交时**不允许**添加 `Co-Authored-By` 协作者信息
+- 提交时**不允许**添加 `🤖 Generated with [Claude Code]` 标记
+- 作者信息保持 git config 中配置的用户，不做任何修改
+
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

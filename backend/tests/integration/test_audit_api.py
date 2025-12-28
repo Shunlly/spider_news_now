@@ -9,6 +9,7 @@ T159: Integration test for audit log endpoint
 """
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,7 @@ from app.models.user import User
 from tests.conftest import test_app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_audit_data(db_session: AsyncSession, test_user: User):
     """创建审计日志测试数据"""
     # 创建审计日志
@@ -70,7 +71,7 @@ async def setup_audit_data(db_session: AsyncSession, test_user: User):
     return logs
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_roles(db_session: AsyncSession):
     """创建角色 - 使用 merge 避免冲突"""
     from sqlalchemy import select
@@ -97,7 +98,7 @@ async def setup_roles(db_session: AsyncSession):
     return roles
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def super_admin_user(db_session: AsyncSession):
     """创建超级管理员用户"""
     import bcrypt
@@ -128,7 +129,7 @@ async def super_admin_user(db_session: AsyncSession):
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def admin_client(db_session: AsyncSession, super_admin_user: User):
     """创建超级管理员客户端"""
     async def override_get_db():
@@ -155,7 +156,7 @@ async def admin_client(db_session: AsyncSession, super_admin_user: User):
     test_app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def regular_client(db_session: AsyncSession):
     """创建普通用户客户端"""
     import bcrypt

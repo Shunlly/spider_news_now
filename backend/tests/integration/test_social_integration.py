@@ -7,6 +7,7 @@ Tests the full social data collection workflow including sessions and messages.
 from datetime import datetime
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -224,7 +225,7 @@ class TestSocialWorkflowIntegration:
 class TestSocialMessageIntegration:
     """Integration tests for social message handling."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def session_with_messages(self, db_session: AsyncSession, test_user):
         """Create a session with messages for testing."""
         session = SocialSession(

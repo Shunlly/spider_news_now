@@ -1,8 +1,7 @@
 """Pytest configuration and fixtures."""
 
-import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from unittest.mock import MagicMock  # noqa: F401 - used by test files
 
@@ -81,14 +80,6 @@ def create_test_app() -> FastAPI:
 
 # Global test app instance
 test_app = create_test_app()
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator:
-    """Create an event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture(scope="function")

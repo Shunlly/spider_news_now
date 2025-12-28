@@ -7,6 +7,7 @@ Tests the full export process including task creation, execution, and download.
 from datetime import datetime, timedelta
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,7 @@ from app.services.export_service import DataSource
 class TestExportWorkflowIntegration:
     """Integration tests for export functionality."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def news_data(self, db_session: AsyncSession, sample_news_source, sample_news_article):
         """Create sample news data for export testing."""
         # Create source

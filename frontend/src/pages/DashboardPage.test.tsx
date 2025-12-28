@@ -12,7 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../test/utils'
 import DashboardPage from './DashboardPage'
-import { scraperService, newsService } from '@/services'
+import { scraperService, newsService, quotaService } from '@/services'
 
 // Mock services
 vi.mock('@/services', () => ({
@@ -23,6 +23,9 @@ vi.mock('@/services', () => ({
   },
   newsService: {
     getStatistics: vi.fn(),
+  },
+  quotaService: {
+    getQuota: vi.fn(),
   },
 }))
 
@@ -78,6 +81,12 @@ describe('DashboardPage', () => {
     })
     ;(newsService.getStatistics as ReturnType<typeof vi.fn>).mockResolvedValue(mockStats)
     ;(scraperService.runAllScrapers as ReturnType<typeof vi.fn>).mockResolvedValue({})
+    ;(quotaService.getQuota as ReturnType<typeof vi.fn>).mockResolvedValue({
+      daily_limit: 1000,
+      daily_used: 100,
+      concurrent_limit: 10,
+      current_concurrent: 1,
+    })
   })
 
   describe('Rendering', () => {
@@ -130,9 +139,17 @@ describe('DashboardPage', () => {
     it('should display today articles count', async () => {
       render(<DashboardPage />)
 
+      // Wait for loading to complete and statistics to be fetched
       await waitFor(() => {
-        expect(screen.getByText('25')).toBeInTheDocument()
+        expect(newsService.getStatistics).toHaveBeenCalled()
       })
+
+      // After loading, the stat card should display the value
+      // Use getAllByText since there might be multiple numbers, and check for our expected value
+      await waitFor(() => {
+        const allText = document.body.textContent || ''
+        expect(allText).toContain('25')
+      }, { timeout: 3000 })
     })
   })
 

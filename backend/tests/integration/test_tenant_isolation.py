@@ -8,6 +8,7 @@ T110: Integration test for permission denied cases
 """
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +21,7 @@ from app.models.user import User
 from tests.conftest import test_app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_tenants(db_session: AsyncSession):
     """创建测试租户"""
     tenant1 = Tenant(
@@ -41,7 +42,7 @@ async def setup_tenants(db_session: AsyncSession):
     return tenant1, tenant2
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_roles_and_users(db_session: AsyncSession, setup_tenants):
     """创建测试角色和用户"""
     import bcrypt
@@ -124,7 +125,7 @@ async def setup_roles_and_users(db_session: AsyncSession, setup_tenants):
     }
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def tenant_client(db_session: AsyncSession, setup_roles_and_users):
     """创建租户用户客户端"""
     users = setup_roles_and_users

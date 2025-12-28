@@ -13,6 +13,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +27,7 @@ from tests.conftest import test_app
 SKIP_INTEGRATION = os.environ.get("SKIP_INTEGRATION_TESTS", "0") == "1"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def unauthenticated_client(db_session: AsyncSession):
     """创建无认证的客户端用于测试登录/注册"""
 
@@ -42,7 +43,7 @@ async def unauthenticated_client(db_session: AsyncSession):
     test_app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_roles(db_session: AsyncSession):
     """创建测试所需的角色 - 使用 merge 避免冲突"""
     from sqlalchemy import select
@@ -256,7 +257,7 @@ class TestRegisterAPI:
 class TestLoginAPI:
     """登录 API 集成测试 - T036"""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def registered_user(
         self,
         db_session: AsyncSession,

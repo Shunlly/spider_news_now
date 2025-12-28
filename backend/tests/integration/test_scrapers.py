@@ -1,6 +1,7 @@
 """Integration tests for scrapers."""
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import select
 
 from app.models.news_article import NewsArticle
@@ -12,7 +13,7 @@ from app.scrapers.sina_scraper import SinaScraper
 class TestScraperIntegration:
     """Integration tests for scraper execution and database insertion."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def sina_source(self, db_session, test_user):
         """Create sina source for foreign key constraint."""
         source = NewsSource(

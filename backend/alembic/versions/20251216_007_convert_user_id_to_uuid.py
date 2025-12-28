@@ -86,16 +86,28 @@ def upgrade() -> None:
         # users 表不存在，跳过此迁移
         return
 
+    # 检查 users 表是否有 id 列
+    if not column_exists('users', 'id'):
+        # id 列不存在，跳过此迁移
+        return
+
     # 检查 users.id 是否已经是 UUID 类型（CHAR(36) 或 VARCHAR(36)）
     id_type = get_column_type('users', 'id')
+    if not id_type:
+        # 无法获取列类型，跳过
+        return
     if 'CHAR' in id_type.upper() or 'VARCHAR' in id_type.upper():
         # 已经是 UUID 类型，跳过迁移
         return
 
     # 1. 首先获取现有用户的映射关系（旧 INT id -> 新 UUID）
     # 查询现有用户
-    result = connection.execute(sa.text("SELECT id, username FROM users"))
-    users = list(result)
+    try:
+        result = connection.execute(sa.text("SELECT id, username FROM users"))
+        users = list(result)
+    except Exception:
+        # 查询失败，可能表结构不正确，跳过
+        users = []
 
     # 创建 INT -> UUID 映射
     id_mapping = {}

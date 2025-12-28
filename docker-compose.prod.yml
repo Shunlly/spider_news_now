@@ -214,8 +214,7 @@ services:
     container_name: news_scraper_frontend
     restart: always
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     ports:
       - "${FRONTEND_PORT:-8080}:80"
     networks:

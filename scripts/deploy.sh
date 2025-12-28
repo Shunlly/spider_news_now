@@ -7,7 +7,7 @@ set -e
 
 PROJECT_DIR="/opt/app/spider_news_now"
 BACKUP_DIR="/opt/app/backups"
-COMPOSE_FILE="docker-compose.server.yml"
+COMPOSE_FILE="docker-compose.prod.yml"
 MAX_BACKUPS=5
 
 RED='\033[0;31m'

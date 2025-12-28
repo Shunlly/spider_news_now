@@ -127,17 +127,13 @@ def upgrade() -> None:
         op.add_column('users', sa.Column('verification_expires', sa.DateTime(), nullable=True, comment='验证Token过期时间'))
     # 注意：last_login_at, login_attempts, locked_until 已在 005 迁移中创建，此处不再重复添加
 
-    # 创建外键约束（检查是否已存在）
-    if not foreign_key_exists('fk_users_tenant_id'):
-        op.create_foreign_key('fk_users_tenant_id', 'users', 'tenants', ['tenant_id'], ['id'], ondelete='CASCADE')
-    if not foreign_key_exists('fk_users_role_id'):
-        op.create_foreign_key('fk_users_role_id', 'users', 'roles', ['role_id'], ['id'])
+    # 创建索引（不使用物理外键，使用逻辑外键）
     if not index_exists('ix_users_tenant_id', 'users'):
         op.create_index('ix_users_tenant_id', 'users', ['tenant_id'])
     if not index_exists('ix_users_role_id', 'users'):
         op.create_index('ix_users_role_id', 'users', ['role_id'])
 
-    # 5. 创建 quotas 表（配额追踪）
+    # 5. 创建 quotas 表（配额追踪）- 使用逻辑外键
     if not table_exists('quotas'):
         op.create_table(
             'quotas',
@@ -152,12 +148,11 @@ def upgrade() -> None:
             sa.Column('warning_shown', sa.Boolean(), nullable=False, server_default='0', comment='是否已显示配额警告'),
             sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'), comment='更新时间'),
             sa.PrimaryKeyConstraint('id'),
-            sa.ForeignKeyConstraint(['user_id'], ['users.id'], name='fk_quotas_user_id', ondelete='CASCADE'),
             sa.UniqueConstraint('user_id', name='uq_quotas_user_id'),
         )
         op.create_index('ix_quotas_user_id', 'quotas', ['user_id'])
 
-    # 6. 创建 audit_logs 表（审计日志）
+    # 6. 创建 audit_logs 表（审计日志）- 使用逻辑外键
     if not table_exists('audit_logs'):
         op.create_table(
             'audit_logs',
@@ -175,7 +170,6 @@ def upgrade() -> None:
             sa.Column('error_message', sa.Text(), nullable=True, comment='错误消息'),
             sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP'), comment='操作时间'),
             sa.PrimaryKeyConstraint('id'),
-            sa.ForeignKeyConstraint(['user_id'], ['users.id'], name='fk_audit_logs_user_id', ondelete='SET NULL'),
         )
         op.create_index('ix_audit_logs_user_id', 'audit_logs', ['user_id'])
         op.create_index('ix_audit_logs_action', 'audit_logs', ['action'])
@@ -228,8 +222,7 @@ def downgrade() -> None:
     # 删除 users 表新增字段
     op.drop_index('ix_users_role_id', table_name='users')
     op.drop_index('ix_users_tenant_id', table_name='users')
-    op.drop_constraint('fk_users_role_id', 'users', type_='foreignkey')
-    op.drop_constraint('fk_users_tenant_id', 'users', type_='foreignkey')
+    # 注意：不删除外键约束，因为使用逻辑外键
     # 注意：last_login_at, login_attempts, locked_until 由 005 迁移创建，此处不删除
     op.drop_column('users', 'verification_expires')
     op.drop_column('users', 'verification_token')

@@ -165,9 +165,8 @@ def upgrade() -> None:
                       server_default=sa.func.now()),
             sa.Column('updated_at', sa.DateTime(), nullable=False,
                       server_default=sa.func.now()),
-            sa.ForeignKeyConstraint(['session_id'], ['social_sessions.id'],
-                                     ondelete='CASCADE'),
             sa.PrimaryKeyConstraint('id'),
+            # 使用逻辑外键，不添加物理外键约束
             comment='社交消息表'
         )
         op.create_index('ix_social_messages_id', 'social_messages', ['id'])

@@ -181,7 +181,7 @@ def upgrade() -> None:
 
     # 重命名 uuid_temp 为 id（如果存在）
     if column_exists('users', 'uuid_temp'):
-        op.alter_column('users', 'uuid_temp', new_column_name='id', nullable=False)
+        op.alter_column('users', 'uuid_temp', new_column_name='id', existing_type=sa.String(36), nullable=False)
 
     # 添加新的主键
     op.create_primary_key('pk_users', 'users', ['id'])
@@ -211,7 +211,7 @@ def upgrade() -> None:
 
         # 重命名临时列为 user_id（如果存在）
         if column_exists(table, 'user_uuid_temp'):
-            op.alter_column(table, 'user_uuid_temp', new_column_name='user_id', nullable=False)
+            op.alter_column(table, 'user_uuid_temp', new_column_name='user_id', existing_type=sa.String(36), nullable=False)
 
         # 重新创建索引（如果不存在）
         if not index_exists(table, f'ix_{table}_user_id'):
@@ -223,15 +223,13 @@ def upgrade() -> None:
     if table_exists('social_sessions') and not index_exists('social_sessions', 'idx_session_user_platform'):
         op.create_index('idx_session_user_platform', 'social_sessions', ['user_id', 'platform'])
 
-    # 6. 重新添加外键约束
+    # 6. 不再添加外键约束，使用逻辑外键
+    # 只确保索引存在
     for fk_name, table in foreign_keys:
-        if table_exists(table) and not fk_exists(table, fk_name):
-            op.create_foreign_key(
-                fk_name,
-                table, 'users',
-                ['user_id'], ['id'],
-                ondelete='CASCADE'
-            )
+        if table_exists(table):
+            index_name = f'ix_{table}_user_id'
+            if not index_exists(table, index_name):
+                op.create_index(index_name, table, ['user_id'])
 
 
 def downgrade() -> None:
@@ -300,11 +298,4 @@ def downgrade() -> None:
     op.create_primary_key('pk_users', 'users', ['id'])
     op.create_index('ix_users_id', 'users', ['id'])
 
-    # 重新添加外键约束
-    for fk_name, table in foreign_keys:
-        op.create_foreign_key(
-            fk_name,
-            table, 'users',
-            ['user_id'], ['id'],
-            ondelete='CASCADE'
-        )
+    # 不再添加外键约束，使用逻辑外键

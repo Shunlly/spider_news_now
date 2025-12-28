@@ -77,8 +77,8 @@ def upgrade() -> None:
             sa.Column('scraped_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
             sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
             sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
-            sa.ForeignKeyConstraint(['source_key'], ['news_sources.source_key']),
-            sa.PrimaryKeyConstraint('id')
+            sa.PrimaryKeyConstraint('id'),
+            # 使用逻辑外键，不添加物理外键约束
         )
         op.create_index('ix_news_articles_id', 'news_articles', ['id'])
         op.create_index('ix_news_articles_url_hash', 'news_articles', ['url_hash'], unique=True)
@@ -104,8 +104,8 @@ def upgrade() -> None:
             sa.Column('duration_seconds', sa.Integer(), nullable=True),
             sa.Column('error_message', sa.Text(), nullable=True),
             sa.Column('error_traceback', sa.Text(), nullable=True),
-            sa.ForeignKeyConstraint(['source_key'], ['news_sources.source_key']),
-            sa.PrimaryKeyConstraint('id')
+            sa.PrimaryKeyConstraint('id'),
+            # 使用逻辑外键，不添加物理外键约束
         )
         op.create_index('ix_scraper_runs_id', 'scraper_runs', ['id'])
         op.create_index('ix_scraper_runs_source_key', 'scraper_runs', ['source_key'])

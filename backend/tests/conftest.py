@@ -27,22 +27,6 @@ DB_NAME = os.environ.get("DB_NAME", "news_scraper_test")
 
 TEST_DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Create test engine
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-)
-
-# Create test session factory
-TestSessionLocal = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
-
 
 # Create a test-specific app without scheduler (to avoid lifespan hanging)
 @asynccontextmanager
@@ -87,23 +71,43 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Create a fresh database session for each test.
 
-    Creates all tables before test and drops them after.
+    Creates engine and session factory inside the fixture to ensure
+    they are created in the correct event loop.
     """
+    # Create engine inside fixture to bind to correct event loop
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        pool_pre_ping=True,
+    )
+
+    # Create session factory
+    session_factory = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+
     # Drop all tables first to ensure clean state
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
     # Create all tables
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     # Create session
-    async with TestSessionLocal() as session:
+    async with session_factory() as session:
         yield session
 
     # Drop all tables
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+    # Dispose the engine
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")

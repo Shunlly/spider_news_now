@@ -193,10 +193,11 @@ def upgrade() -> None:
         op.create_index('ix_captcha_attempts_created_at', 'captcha_attempts', ['created_at'])
 
     # 8. 更新现有 admin 用户为超级管理员角色
+    # 只使用 username 查询，避免 id 列可能不存在的问题
     op.execute("""
         UPDATE users
         SET role_id = 1, is_verified = 1
-        WHERE username = 'admin' OR id = '00000000-0000-0000-0000-000000000001'
+        WHERE username = 'admin'
     """)
 
 

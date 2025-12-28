@@ -5,7 +5,7 @@ T034: StorageProvider (MinIO) tests
 测试对象存储功能，使用 Mock 避免依赖实际服务。
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

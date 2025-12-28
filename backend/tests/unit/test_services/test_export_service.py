@@ -8,7 +8,6 @@ T147: Unit test for export service
 import csv
 import io
 import json
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -421,7 +420,7 @@ class TestExportServiceCleanup:
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("pathlib.Path.unlink"):
-                cleaned = await export_service.cleanup_old_exports(days=7)
+                await export_service.cleanup_old_exports(days=7)
 
         # 验证调用
         assert export_service.db.delete.called

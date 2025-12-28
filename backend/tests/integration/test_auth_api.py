@@ -266,7 +266,7 @@ class TestLoginAPI:
         import bcrypt
 
         # 直接创建用户而不是使用 user_service（避免 passlib 兼容性问题）
-        password_hash = bcrypt.hashpw("correctpassword123".encode(), bcrypt.gensalt()).decode()
+        password_hash = bcrypt.hashpw(b"correctpassword123", bcrypt.gensalt()).decode()
 
         user = User(
             id="login-test-user-001",
@@ -520,10 +520,11 @@ class TestProfileUpdateAPI:
     ):
         """测试更新密码"""
         import bcrypt
+
         from app.core.security import create_access_token
 
         # 创建用户
-        password_hash = bcrypt.hashpw("oldpassword123".encode(), bcrypt.gensalt()).decode()
+        password_hash = bcrypt.hashpw(b"oldpassword123", bcrypt.gensalt()).decode()
         user = User(
             id="password-update-test-001",
             username="passwordtestuser",
@@ -721,7 +722,7 @@ class TestAuthE2EFlow:
         import bcrypt
 
         # 创建已禁用的用户
-        password_hash = bcrypt.hashpw("password123".encode(), bcrypt.gensalt()).decode()
+        password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode()
         inactive_user = User(
             id="inactive-user-001",
             username="inactiveuser",
@@ -814,6 +815,7 @@ class TestAccountSecurity:
     ):
         """测试过期的 access token"""
         import jwt
+
         from app.core.config import settings
 
         # 创建一个已过期的 token

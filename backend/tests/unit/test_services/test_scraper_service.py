@@ -24,6 +24,7 @@ class TestScraperService:
         with pytest.raises(ImportError):
             await ScraperService.load_scraper("invalid", "app.scrapers.invalid_scraper")
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_get_scraper_status_empty_database(self, db_session):
         """Test status retrieval with no sources."""
@@ -34,6 +35,7 @@ class TestScraperService:
         assert status["running"] == 0
         assert status["failed"] == 0
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_get_scraper_status_with_sources(self, db_session, test_user):
         """Test status retrieval with multiple sources."""

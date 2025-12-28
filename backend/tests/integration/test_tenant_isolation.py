@@ -65,7 +65,7 @@ async def setup_roles_and_users(db_session: AsyncSession, setup_tenants):
 
     await db_session.flush()
 
-    password_hash = bcrypt.hashpw("password123".encode(), bcrypt.gensalt()).decode()
+    password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode()
 
     # 超级管理员 - 无租户限制
     super_admin = User(
@@ -353,12 +353,11 @@ class TestPermissionDenied:
     ):
         """测试禁用用户被拒绝"""
         import bcrypt
+
         from app.db.session import get_db
 
-        users = setup_roles_and_users
-
         # 创建禁用用户
-        password_hash = bcrypt.hashpw("password123".encode(), bcrypt.gensalt()).decode()
+        password_hash = bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode()
         inactive_user = User(
             id="inactive-user-001",
             username="inactiveuser",

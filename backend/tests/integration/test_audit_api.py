@@ -111,7 +111,7 @@ async def super_admin_user(db_session: AsyncSession):
         db_session.add(role)
         await db_session.flush()
 
-    password_hash = bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode()
+    password_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
 
     user = User(
         id="super-admin-audit-test-001",
@@ -169,7 +169,7 @@ async def regular_client(db_session: AsyncSession):
         db_session.add(role)
         await db_session.flush()
 
-    password_hash = bcrypt.hashpw("user123".encode(), bcrypt.gensalt()).decode()
+    password_hash = bcrypt.hashpw(b"user123", bcrypt.gensalt()).decode()
 
     user = User(
         id="regular-user-audit-test-001",

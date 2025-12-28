@@ -1,9 +1,10 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock  # noqa: F401 - used by test files
 
 import pytest
 import pytest_asyncio
@@ -18,9 +19,14 @@ from app.db.session import get_db
 from app.models.role import Role, RoleType
 from app.models.user import User
 
-# Test database URL (use separate test database)
-# Docker container exposes MySQL on port 33060
-TEST_DATABASE_URL = "mysql+aiomysql://news_user:news_password@localhost:33060/news_scraper_test"
+# Test database URL from environment or default for local Docker
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_PORT = os.environ.get("DB_PORT", "33060")  # Local Docker uses 33060, CI uses 3306
+DB_USER = os.environ.get("DB_USER", "news_user")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "news_password")
+DB_NAME = os.environ.get("DB_NAME", "news_scraper_test")
+
+TEST_DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Create test engine
 test_engine = create_async_engine(

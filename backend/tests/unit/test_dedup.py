@@ -12,7 +12,6 @@ import pytest
 
 from app.services.dedup_service import DuplicateService
 
-
 # ============== T062: SimHash Tests ==============
 
 

@@ -128,7 +128,6 @@ export default function DataPoolPage() {
     } finally {
       setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, selectedDomain, viewMode])
 
   const fetchStatistics = async () => {

@@ -5,7 +5,6 @@ T061: Unit test for news parser (trafilatura)
 测试正文解析功能，不依赖外部服务。
 """
 
-import pytest
 import trafilatura
 
 from app.services.content_parser_service import ContentParserService

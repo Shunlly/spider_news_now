@@ -9,6 +9,7 @@ from app.models.news_source import NewsSource
 from app.services.news_service import NewsService
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 class TestNewsService:
     """Test suite for NewsService."""

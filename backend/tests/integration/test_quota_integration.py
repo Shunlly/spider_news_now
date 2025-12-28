@@ -14,7 +14,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.quota import Quota, QuotaTier
+from app.models.quota import QuotaTier
 from app.models.user import User
 from app.services.quota_service import QuotaService
 

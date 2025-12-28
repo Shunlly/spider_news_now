@@ -7,12 +7,11 @@ T092: Unit test for Telegram message parser
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.social_service import SocialService, generate_message_hash
-
+from app.services.social_service import generate_message_hash
 
 # ============== 辅助函数测试 ==============
 

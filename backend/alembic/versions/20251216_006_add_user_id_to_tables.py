@@ -47,8 +47,68 @@ def fk_exists(table_name: str, fk_name: str) -> bool:
     return fk_name in fks
 
 
+def ensure_admin_user_exists() -> None:
+    """确保 admin 用户存在，如果不存在则创建"""
+    connection = op.get_bind()
+
+    # 检查是否有任何用户
+    result = connection.execute(sa.text("SELECT COUNT(*) FROM users"))
+    user_count = result.scalar()
+
+    if user_count == 0:
+        # 创建默认 admin 用户
+        # 使用 bcrypt 哈希的 'admin123' 密码
+        default_password_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.8nHYf5UY1HqJfO"
+
+        # 检查是否有 role_id=1 的角色
+        role_result = connection.execute(sa.text("SELECT id FROM roles WHERE id = 1"))
+        role = role_result.fetchone()
+
+        if role:
+            connection.execute(sa.text("""
+                INSERT INTO users (id, username, email, password_hash, role_id, is_active, created_at, updated_at)
+                VALUES (1, 'admin', 'admin@localhost', :password_hash, 1, 1, NOW(), NOW())
+            """), {"password_hash": default_password_hash})
+
+
+def cleanup_orphaned_data(table_name: str) -> None:
+    """清理孤立数据（user_id 不存在于 users 表中的记录）"""
+    connection = op.get_bind()
+
+    # 获取 users.id 的类型
+    users_id_type = get_column_type('users', 'id')
+    table_user_id_type = get_column_type(table_name, 'user_id')
+
+    # 如果类型不匹配（一个是 UUID，一个是 INT），直接删除所有有 user_id 的记录
+    users_is_uuid = 'CHAR' in users_id_type.upper() or 'VARCHAR' in users_id_type.upper()
+    table_is_int = 'INT' in table_user_id_type.upper()
+
+    if users_is_uuid and table_is_int:
+        # 类型不匹配，无法进行有效的外键关联，删除所有数据
+        connection.execute(sa.text(f"DELETE FROM {table_name} WHERE user_id IS NOT NULL"))
+    else:
+        # 类型匹配，只删除孤立记录
+        connection.execute(sa.text(f"""
+            DELETE FROM {table_name}
+            WHERE user_id IS NOT NULL
+            AND user_id NOT IN (SELECT id FROM users)
+        """))
+
+
+def get_column_type(table_name: str, column_name: str) -> str:
+    """获取列的类型"""
+    bind = op.get_bind()
+    insp = inspect(bind)
+    for col in insp.get_columns(table_name):
+        if col['name'] == column_name:
+            return str(col['type'])
+    return ''
+
+
 def add_user_id_column(table_name: str, fk_name: str, index_name: str) -> None:
     """为表添加 user_id 列、外键和索引（幂等操作）"""
+    connection = op.get_bind()
+
     # 添加列（如果不存在）
     if not column_exists(table_name, 'user_id'):
         op.add_column(
@@ -60,10 +120,24 @@ def add_user_id_column(table_name: str, fk_name: str, index_name: str) -> None:
                 comment='所属用户ID'
             )
         )
-        # 将已有数据归属到 admin (id=1)
-        op.execute(f"UPDATE {table_name} SET user_id = 1 WHERE user_id IS NULL")
+
+        # 检查是否有用户存在
+        result = connection.execute(sa.text("SELECT id FROM users ORDER BY id LIMIT 1"))
+        first_user = result.fetchone()
+
+        if first_user:
+            # 将已有数据归属到第一个用户
+            default_user_id = first_user[0]
+            op.execute(f"UPDATE {table_name} SET user_id = {default_user_id} WHERE user_id IS NULL")
+        else:
+            # 如果没有用户，删除孤立数据
+            op.execute(f"DELETE FROM {table_name} WHERE user_id IS NULL")
+
         # 设置 NOT NULL
         op.alter_column(table_name, 'user_id', nullable=False)
+    else:
+        # 列已存在，清理孤立数据
+        cleanup_orphaned_data(table_name)
 
     # 添加外键（如果不存在）
     if not fk_exists(table_name, fk_name):
@@ -81,6 +155,15 @@ def add_user_id_column(table_name: str, fk_name: str, index_name: str) -> None:
 
 def upgrade() -> None:
     """为所有业务表添加 user_id 字段"""
+    connection = op.get_bind()
+
+    # 首先确保有可用的用户
+    ensure_admin_user_exists()
+
+    # 获取第一个用户 ID（用于分配孤立数据）
+    result = connection.execute(sa.text("SELECT id FROM users ORDER BY id LIMIT 1"))
+    first_user = result.fetchone()
+    default_user_id = first_user[0] if first_user else None
 
     # ========== 1. news_sources 表 ==========
     add_user_id_column('news_sources', 'fk_news_sources_user_id', 'ix_news_sources_user_id')
@@ -91,8 +174,13 @@ def upgrade() -> None:
             'news_articles',
             sa.Column('user_id', sa.Integer(), nullable=True, comment='所属用户ID')
         )
-        op.execute("UPDATE news_articles SET user_id = 1 WHERE user_id IS NULL")
+        if default_user_id:
+            op.execute(f"UPDATE news_articles SET user_id = {default_user_id} WHERE user_id IS NULL")
+        else:
+            op.execute("DELETE FROM news_articles WHERE user_id IS NULL")
         op.alter_column('news_articles', 'user_id', nullable=False)
+    else:
+        cleanup_orphaned_data('news_articles')
     if not fk_exists('news_articles', 'fk_news_articles_user_id'):
         op.create_foreign_key(
             'fk_news_articles_user_id',
@@ -112,8 +200,13 @@ def upgrade() -> None:
             'social_sessions',
             sa.Column('user_id', sa.Integer(), nullable=True, comment='所属用户ID')
         )
-        op.execute("UPDATE social_sessions SET user_id = 1 WHERE user_id IS NULL")
+        if default_user_id:
+            op.execute(f"UPDATE social_sessions SET user_id = {default_user_id} WHERE user_id IS NULL")
+        else:
+            op.execute("DELETE FROM social_sessions WHERE user_id IS NULL")
         op.alter_column('social_sessions', 'user_id', nullable=False)
+    else:
+        cleanup_orphaned_data('social_sessions')
     if not fk_exists('social_sessions', 'fk_social_sessions_user_id'):
         op.create_foreign_key(
             'fk_social_sessions_user_id',

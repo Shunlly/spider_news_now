@@ -47,8 +47,18 @@ def fk_exists(table_name: str, fk_name: str) -> bool:
     return fk_name in fks
 
 
+def table_exists(table_name: str) -> bool:
+    """检查表是否已存在"""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = DATABASE() AND table_name = :table_name"
+    ), {"table_name": table_name})
+    return result.scalar() > 0
+
+
 def ensure_admin_user_exists() -> None:
-    """确保 admin 用户存在，如果不存在则创建"""
+    """确保至少有一个用户存在，如果没有则创建默认 admin 用户"""
     connection = op.get_bind()
 
     # 检查是否有任何用户
@@ -56,18 +66,29 @@ def ensure_admin_user_exists() -> None:
     user_count = result.scalar()
 
     if user_count == 0:
-        # 创建默认 admin 用户
+        # 检查 users 表结构，确定使用 role 还是 role_id
+        users_has_role_id = column_exists('users', 'role_id')
+        users_has_role_enum = column_exists('users', 'role')
+
         # 使用 bcrypt 哈希的 'admin123' 密码
         default_password_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.8nHYf5UY1HqJfO"
 
-        # 检查是否有 role_id=1 的角色
-        role_result = connection.execute(sa.text("SELECT id FROM roles WHERE id = 1"))
-        role = role_result.fetchone()
-
-        if role:
+        if users_has_role_id:
+            # 新结构：使用 role_id 外键
+            # 检查 roles 表是否存在
+            if table_exists('roles'):
+                role_result = connection.execute(sa.text("SELECT id FROM roles ORDER BY id LIMIT 1"))
+                role = role_result.fetchone()
+                if role:
+                    connection.execute(sa.text("""
+                        INSERT INTO users (id, username, email, password_hash, role_id, is_active, created_at, updated_at)
+                        VALUES (1, 'admin', 'admin@localhost', :password_hash, :role_id, 1, NOW(), NOW())
+                    """), {"password_hash": default_password_hash, "role_id": role[0]})
+        elif users_has_role_enum:
+            # 旧结构：使用 role ENUM
             connection.execute(sa.text("""
-                INSERT INTO users (id, username, email, password_hash, role_id, is_active, created_at, updated_at)
-                VALUES (1, 'admin', 'admin@localhost', :password_hash, 1, 1, NOW(), NOW())
+                INSERT INTO users (id, username, email, password_hash, role, is_active, created_at, updated_at)
+                VALUES (1, 'admin', 'admin@localhost', :password_hash, 'admin', 1, NOW(), NOW())
             """), {"password_hash": default_password_hash})
 
 

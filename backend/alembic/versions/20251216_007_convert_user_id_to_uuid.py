@@ -55,6 +55,16 @@ def fk_exists(table_name: str, fk_name: str) -> bool:
     return fk_name in fks
 
 
+def table_exists(table_name: str) -> bool:
+    """检查表是否已存在"""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = DATABASE() AND table_name = :table_name"
+    ), {"table_name": table_name})
+    return result.scalar() > 0
+
+
 def get_column_type(table_name: str, column_name: str) -> str:
     """获取列的类型"""
     bind = op.get_bind()
@@ -70,6 +80,11 @@ def upgrade() -> None:
 
     # 获取数据库连接
     connection = op.get_bind()
+
+    # 检查 users 表是否存在
+    if not table_exists('users'):
+        # users 表不存在，跳过此迁移
+        return
 
     # 检查 users.id 是否已经是 UUID 类型（CHAR(36) 或 VARCHAR(36)）
     id_type = get_column_type('users', 'id')
@@ -106,7 +121,7 @@ def upgrade() -> None:
     ]
 
     for fk_name, table in foreign_keys:
-        if fk_exists(table, fk_name):
+        if table_exists(table) and fk_exists(table, fk_name):
             op.drop_constraint(fk_name, table, type_='foreignkey')
 
     # 3. 为所有业务表添加临时的 user_uuid 列
@@ -121,6 +136,9 @@ def upgrade() -> None:
     ]
 
     for table in tables_with_user_id:
+        # 跳过不存在的表
+        if not table_exists(table):
+            continue
         # 添加临时 UUID 列（如果不存在）
         if not column_exists(table, 'user_uuid_temp'):
             op.add_column(table, sa.Column('user_uuid_temp', sa.String(36), nullable=True))
@@ -160,6 +178,10 @@ def upgrade() -> None:
 
     # 5. 更新业务表的 user_id 列
     for table in tables_with_user_id:
+        # 跳过不存在的表
+        if not table_exists(table):
+            continue
+
         # 删除旧的 user_id 列（如果是 INT 类型）
         user_id_type = get_column_type(table, 'user_id')
         if user_id_type and 'INT' in user_id_type.upper():
@@ -184,14 +206,14 @@ def upgrade() -> None:
             op.create_index(f'ix_{table}_user_id', table, ['user_id'])
 
     # 重建复合索引
-    if not index_exists('news_articles', 'idx_article_user_date'):
+    if table_exists('news_articles') and not index_exists('news_articles', 'idx_article_user_date'):
         op.create_index('idx_article_user_date', 'news_articles', ['user_id', 'published_at'])
-    if not index_exists('social_sessions', 'idx_session_user_platform'):
+    if table_exists('social_sessions') and not index_exists('social_sessions', 'idx_session_user_platform'):
         op.create_index('idx_session_user_platform', 'social_sessions', ['user_id', 'platform'])
 
     # 6. 重新添加外键约束
     for fk_name, table in foreign_keys:
-        if not fk_exists(table, fk_name):
+        if table_exists(table) and not fk_exists(table, fk_name):
             op.create_foreign_key(
                 fk_name,
                 table, 'users',
